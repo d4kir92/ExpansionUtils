@@ -1,5 +1,5 @@
 ## Interface: 90207
-## Version: 1.0.0
+## Version: 1.0.1
 ## Title: ExtendedVariables |T133740/:16:16:0:0|t by |cFFAAAAFFD4KiR |T132115/:16:16:0:0|t 
 ## Notes: Covenant and item level
 ## Author: D4KiR
