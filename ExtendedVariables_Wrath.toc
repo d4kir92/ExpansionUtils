@@ -1,5 +1,5 @@
 ## Interface: 30400
-## Version: 1.0.4
+## Version: 1.0.5
 ## Title: ExtendedVariables |T133740:16:16:0:0|t by |cff3FC7EBD4KiR |T132115:16:16:0:0|t 
 ## Notes: Covenant and item level
 ## Author: D4KiR
