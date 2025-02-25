@@ -1,12 +1,14 @@
 ## Interface: 20504
-## Version: 1.1.31
+## Version: 1.1.32
 ## Title: ExtendedVariables |T133740:16:16:0:0|t by |cff3FC7EBD4KiR |T132115:16:16:0:0|t 
 ## Notes: item level
 ## Author: D4KiR
+## X-Category: D4KiR
 ## DefaultState: enabled
 ## SavedVariables: EVTAB
 ## SavedVariablesPerCharacter: EVTABPC
 ## X-Curse-Project-ID: 449513
 ## X-Wago-ID: XrNkvzGa
+## IconTexture: 133740
 
 core.lua
