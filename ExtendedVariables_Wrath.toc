@@ -1,9 +1,10 @@
 ## Interface: 30403
-## Version: 1.1.32
+## Version: 1.1.33
 ## Title: ExtendedVariables |T133740:16:16:0:0|t by |cff3FC7EBD4KiR |T132115:16:16:0:0|t 
 ## Notes: item level
-## Author: D4KiR
-## X-Category: D4KiR
+## Author: D|cff3FC7EB4KiR |T132115:16:16:0:0|t
+## Category: D|cff3FC7EB4KiR |T132115:16:16:0:0|t
+## X-Category: D|cff3FC7EB4KiR |T132115:16:16:0:0|t
 ## DefaultState: enabled
 ## SavedVariables: EVTAB
 ## SavedVariablesPerCharacter: EVTABPC
