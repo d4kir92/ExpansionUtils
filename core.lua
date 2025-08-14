@@ -90,7 +90,7 @@ ExpansionUtils:OnEvent(
 	function()
 		ExpansionUtils:UnregisterEvent(fEV, "PLAYER_LOGIN")
 		ExpansionUtils:SetAddonOutput("ExpansionUtils", 133740)
-		ExpansionUtils:SetVersion(133740, "1.0.0")
+		ExpansionUtils:SetVersion(133740, "1.0.1")
 		if EVTAB == nil or EVTAB["MMBtnReshiWrap"] == nil or EVTAB["MMBtnGreatVault"] == nil then
 			EVTAB = EVTAB or {}
 			EVTAB["MMBtnReshiWrap"] = EVTAB["MMBtnReshiWrap"] or {}
