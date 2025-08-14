@@ -1,406 +1,215 @@
-local EVVersion = 23
-local EVLatest = nil
-local EVLoaded = false
-EVBUILD = "CLASSIC"
+local _, ExpansionUtils = ...
+local function GetVaultData()
+	local vaultData = C_WeeklyRewards.GetActivities()
+	if not vaultData then return {}, {}, {} end
+	local res = {}
+	res["raid"] = {}
+	res["mplus"] = {}
+	res["world"] = {}
+	for x, data in pairs(vaultData) do
+		if data.type == 1 then
+			table.insert(res["mplus"], data)
+		elseif data.type == 3 then
+			table.insert(res["raid"], data)
+		elseif data.type == 6 then
+			table.insert(res["world"], data)
+		else
+			ExpansionUtils:MSG("[GetVaultData] Missing Type:", data.type)
+		end
+	end
 
-if select(4, GetBuildInfo()) >= 100000 then
-	EVBUILD = "RETAIL"
-elseif select(4, GetBuildInfo()) > 29999 then
-	EVBUILD = "WRATH"
-elseif select(4, GetBuildInfo()) > 19999 then
-	EVBUILD = "TBC"
+	return res
 end
 
-local function EVOnEvent(self, event, ...)
-	if GEVVersion == nil then
-		GEVVersion = 0
+local function GetVaultStatus(vaultData, name)
+	local res = ""
+	for i, data in pairs(vaultData[name]) do
+		local color = "|cFFFFFFFF"
+		if data.progress == 0 then
+			color = "|cFFFF0000"
+		elseif data.progress >= data.threshold then
+			color = "|cFF00FF00"
+		else
+			color = "|cFFFFFF00"
+		end
+
+		local status = color .. data.progress .. "|cFFFFFFFF/" .. color .. data.threshold
+		if data.progress > data.threshold then
+			status = color .. data.threshold .. "|cFFFFFFFF/" .. color .. data.threshold
+		end
+
+		if res ~= "" then
+			res = res .. "     "
+		end
+
+		res = res .. status
 	end
 
-	if EVVersion > GEVVersion then
-		GEVVersion = EVVersion
-		EVLatest = true
-	elseif EVVersion < GEVVersion then
-		EVLatest = false
-	end
+	res = res .. "  "
 
-	if event == "PLAYER_ENTERING_WORLD" and not EVLoaded and EVLatest then
-		EVLoaded = true
-
-		function DBNameByUnit(unit)
-			if UnitExists(unit) and UnitIsPlayer(unit) then
-				local name, realm = UnitName(unit)
-
-				if realm and realm ~= "" then
-					name = name .. "-" .. realm
-				else
-					name = name .. "-" .. GetRealmName()
-				end
-
-				return name
-			else
-				return ""
-			end
-		end
-
-		if EVTAB == nil then
-			EVTAB = {}
-		end
-
-		if MAITAB then
-			EVTAB = MAITAB
-		elseif MIPO then
-			EVTAB = MIPO
-		elseif HPTAB then
-			EVTAB = HPTAB
-		elseif THTAB then
-			EVTAB = THTAB
-		elseif DRFTAB then
-			EVTAB = DRFTAB
-		elseif LOCTAB then
-			EVTAB = LOCTAB
-		end
-
-		-- "GLOBALS"
-		function EVSameFaction(unit)
-			if unit == nil then return false end
-
-			return UnitFactionGroup(unit) == UnitFactionGroup("PLAYER")
-		end
-
-		if EVTAB.ILVL == nil then
-			EVTAB.ILVL = {}
-		end
-
-		-- ITEM LEVEL
-		if GetAverageItemLevel then
-			local ilvlqueue = {}
-
-			function UnitILvl(unit)
-				local ilvl = 0
-
-				if UnitIsPlayer(unit) and UnitIsConnected(unit) then
-					-- TINYINSPECT
-					if GetInspectInfo and GetInspectInfo(unit) then
-						local tab = GetInspectInfo(unit)
-
-						if tab.ilevel and tab.ilevel > 0 and tab.ilevel ~= EVTAB.ILVL[DBNameByUnit(unit)] then
-							EVTAB.ILVL[DBNameByUnit(unit)] = tab.ilevel
-						end
-					end
-
-					if EVTAB.ILVL[DBNameByUnit(unit)] then
-						ilvl = EVTAB.ILVL[DBNameByUnit(unit)]
-					elseif EVLoaded and UnitExists(unit) then
-						local name = DBNameByUnit(unit)
-
-						if not tContains(ilvlqueue, name) then
-							tinsert(ilvlqueue, name)
-
-							if EVSameFaction(unit) then
-								C_ChatInfo.SendAddonMessage("EVILvl", "ASK" .. "," .. DBNameByUnit(unit), "WHISPER", name)
-							end
-						end
-					end
-				end
-
-				return ilvl
-			end
-
-			function EVSendILvl()
-				local _, equipped = GetAverageItemLevel()
-				local prefix = "EVILvl"
-				data = "RECEIVE" .. "," .. equipped .. "," .. DBNameByUnit("PLAYER")
-
-				if IsInRaid(LE_PARTY_CATEGORY_HOME) then
-					C_ChatInfo.SendAddonMessage(prefix, data, "RAID")
-				elseif IsInRaid(LE_PARTY_CATEGORY_INSTANCE) or IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
-					C_ChatInfo.SendAddonMessage(prefix, data, "INSTANCE_CHAT")
-				elseif IsInGroup(LE_PARTY_CATEGORY_HOME) then
-					C_ChatInfo.SendAddonMessage(prefix, data, "PARTY")
-				end
-			end
-
-			local EVILvlAntiSpam = {}
-			C_ChatInfo.RegisterAddonMessagePrefix("EVILvl")
-
-			local function ILvlOnEvent(sel, sevent, prefix, ...)
-				if sevent == "CHAT_MSG_ADDON" then
-					if prefix == "EVILvl" then
-						local msg, channel, name = ...
-						local art, t2, t3 = strsplit(",", msg)
-
-						if art == "RECEIVE" then
-							ilvl = t2
-							guid = t3
-							EVTAB.ILVL[guid] = tonumber(ilvl)
-						elseif art == "ASK" then
-							if not EVILvlAntiSpam[name] then
-								EVILvlAntiSpam[name] = true
-								C_ChatInfo.SendAddonMessage("EVILvl", "RECEIVE" .. "," .. UnitILvl("PLAYER") .. "," .. DBNameByUnit("PLAYER"), channel, name)
-
-								C_Timer.After(1, function()
-									EVILvlAntiSpam[name] = false
-								end)
-							end
-						end
-					end
-				elseif sevent == "PLAYER_ENTERING_WORLD" or sevent == "GROUP_ROSTER_UPDATE" then
-					EVSendILvl()
-				end
-			end
-
-			local fILvl = CreateFrame("Frame")
-			fILvl:RegisterEvent("CHAT_MSG_ADDON")
-			fILvl:RegisterEvent("PLAYER_ENTERING_WORLD")
-			fILvl:RegisterEvent("GROUP_ROSTER_UPDATE")
-			fILvl:SetScript("OnEvent", ILvlOnEvent)
-
-			function EVILvlThink()
-				local _, equipped = GetAverageItemLevel()
-
-				if equipped ~= EVTAB.ILVL[DBNameByUnit("PLAYER")] then
-					EVTAB.ILVL[DBNameByUnit("PLAYER")] = equipped
-					EVSendILvl()
-				end
-
-				C_Timer.After(1, EVILvlThink)
-			end
-
-			function EVSetupILvl()
-				EVILvlThink()
-			end
-
-			EVSetupILvl()
-
-			if EVTAB["cg"] == nil then
-				EVTAB["cg"] = true
-			end
-
-			SLASH_CG1 = "/cg"
-			SLASH_CG2 = "/checkgear"
-
-			SlashCmdList["CG"] = function(msg)
-				if msg == "0" then
-					EVTAB["cg"] = false
-					print("|cFFFF6060" .. "CheckGear turned OFF")
-				elseif msg == "1" then
-					EVTAB["cg"] = true
-					print("|cFF60FF60" .. "CheckGear turned ON")
-				else
-					if EVTAB["cg"] then
-						print("|cFF60FF60" .. "CheckGear is ON")
-					else
-						print("|cFF60FF60" .. "CheckGear is OFF")
-					end
-				end
-			end
-
-			if EVTAB["ilvl"] == nil then
-				EVTAB["ilvl"] = true
-			end
-
-			SLASH_ILVL1 = "/ilvl"
-			SLASH_ILVL2 = "/itemlevel"
-
-			SlashCmdList["ILVL"] = function(msg)
-				if msg == "0" then
-					EVTAB["ilvl"] = false
-					print("|cFFFF6060" .. "ItemLevel turned OFF")
-				elseif msg == "1" then
-					EVTAB["ilvl"] = true
-					print("|cFF60FF60" .. "ItemLevel turned ON")
-				else
-					if EVTAB["ilvl"] then
-						print("|cFF60FF60" .. "ItemLevel is ON")
-					else
-						print("|cFF60FF60" .. "ItemLevel is OFF")
-					end
-				end
-			end
-
-			SLASH_EV1 = "/ev"
-			SLASH_EV2 = "/extendedvariables"
-
-			SlashCmdList["EV"] = function(msg)
-				print("|cFF60FF60" .. "----- ----- ----- ----- -----")
-				print("|cFF60FF60" .. "[EV] Extended Variables")
-
-				if EVTAB["cg"] then
-					print("|cFF60FF60" .. "• CheckGear is ON (/cg 0: off, /cg 1: on)")
-				else
-					print("|cFF60FF60" .. "• CheckGear is OFF (/cg 0: off, /cg 1: on)")
-				end
-
-				if EVTAB["ilvl"] then
-					print("|cFF60FF60" .. "• ItemLevel is ON (/ilvl 0: off, /ilvl 1: on)")
-				else
-					print("|cFF60FF60" .. "• ItemLevel is OFF (/ilvl 0: off, /ilvl 1: on)")
-				end
-
-				print("|cFF60FF60" .. "----- ----- ----- ----- -----")
-			end
-
-			-- BLIZZARD
-			local ids = {1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,}
-
-			-- KOPF
-			-- HALS
-			-- SCHULTER
-			--4, -- HEMD
-			-- BRUST
-			-- TAILLE
-			-- BEINE
-			-- FÜßE
-			-- HANDGELENK
-			-- HÄNDE
-			-- RING 1
-			-- RING 2
-			-- SCHMUCK 1
-			-- SCHMUCK 2
-			-- UMHANG
-			-- WAFFE 1
-			-- WAFFE 2
-			--18, -- ?
-			--19, -- WAPPENROCK 
-			local eids = {5, 11, 12, 15, 16}
-
-			function MAICheckGems(ItemLink)
-				local gems = {"EMPTY_SOCKET_RED", "EMPTY_SOCKET_YELLOW", "EMPTY_SOCKET_BLUE", "EMPTY_SOCKET_META", "EMPTY_SOCKET_PRISMATIC"}
-
-				local stats = GetItemStats(ItemLink)
-
-				if stats then
-					for i, v in pairs(gems) do
-						if stats[v] then return true end
-					end
-				end
-
-				return false
-			end
-
-			local wasbad = false
-
-			function EVCheckGear(unit)
-				local items = 0
-				local ilvlsum = 0
-				local worked = true
-				local printtab = {}
-
-				for i, id in pairs(ids) do
-					local ItemID = GetInventoryItemID(unit, id)
-
-					if ItemID then
-						local ItemLink = GetInventoryItemLink(unit, id)
-
-						if ItemLink then
-							local _, _, enchant, gem1, _, _, _ = string.split(":", ItemLink)
-							local silvl = GetDetailedItemLevelInfo(ItemLink)
-
-							if silvl then
-								ilvlsum = ilvlsum + silvl
-								items = items + 1
-							else
-								worked = false
-							end
-
-							if UnitLevel(unit) >= 60 then
-								if tContains(eids, id) and enchant == "" then
-									tinsert(printtab, ItemLink .. " |cFFFF0000" .. ADDON_MISSING .. "|r (" .. ENCHANTS .. ")")
-								end
-
-								if MAICheckGems(ItemLink) and gem1 == "" then
-									tinsert(printtab, ItemLink .. " |cFFFF0000" .. ADDON_MISSING .. "|r (" .. AUCTION_CATEGORY_GEMS .. ")")
-								end
-							end
-						end
-					end
-				end
-
-				local silvl = 0
-
-				if worked and items > 0 then
-					local name = DBNameByUnit(unit)
-					silvl = ilvlsum / items
-					EVTAB.ILVL[name] = silvl
-				end
-
-				if EVTAB["cg"] then
-					if #printtab > 0 then
-						wasbad = true
-						print("|cFFFFFF00---------- ---------- ---------- ---------- ---------- ---------- ----------")
-
-						if silvl > 0 then
-							print("|cFFFFFF00" .. BAG_FILTER_EQUIPMENT .. " " .. string.format("%.1f", silvl) .. " (/cg 0: off, /cg 1: on)")
-						else
-							print("|cFFFFFF00" .. BAG_FILTER_EQUIPMENT)
-						end
-
-						for i, line in pairs(printtab) do
-							print(line)
-						end
-
-						print("|cFFFFFF00---------- ---------- ---------- ---------- ---------- ---------- ----------")
-					elseif wasbad then
-						wasbad = false
-
-						if silvl > 0 then
-							print("|cFF00FF00" .. BAG_FILTER_EQUIPMENT .. " " .. string.format("%.1f", silvl) .. ": " .. GMSURVEYRATING4)
-						else
-							print("|cFF00FF00" .. BAG_FILTER_EQUIPMENT .. ": " .. GMSURVEYRATING4)
-						end
-					end
-				end
-			end
-
-			C_Timer.After(4, function()
-				EVCheckGear("PLAYER")
-				local f = CreateFrame("FRAME")
-				f:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
-				f:RegisterEvent("PLAYER_ENTERING_WORLD")
-
-				f:SetScript("OnEvent", function(sevent, ...)
-					EVCheckGear("PLAYER")
-				end)
-			end)
-
-			-- TARGET
-			local tf = _G["TargetFrameTextureFrame"]
-
-			if tf then
-				tf.text = tf:CreateFontString(nil, "ARTWORK")
-				tf.text:SetPoint("CENTER", tf, "TOPRIGHT", -74, -6)
-				tf.text:SetFont(STANDARD_TEXT_FONT, 8, "")
-				tf.text:SetText("")
-				tf.text:SetShadowOffset(1, -1)
-
-				function EVILVLTFThink()
-					local ptf = _G["TargetFrameTextureFrame"]
-					local silvl = UnitILvl("TARGET")
-
-					if EVTAB["ilvl"] then
-						if ptf.ilvl ~= silvl then
-							ptf.ilvl = silvl
-
-							if silvl > 0 then
-								ptf.text:SetText(string.format("%.1f", silvl))
-							else
-								ptf.text:SetText("")
-							end
-						end
-					else
-						ptf.text:SetText("")
-					end
-
-					C_Timer.After(0.1, EVILVLTFThink)
-				end
-
-				EVILVLTFThink()
-			end
-		end
-	end
+	return res
 end
 
+local function GetVaultStatusIlvl(vaultData, name)
+	local res = ""
+	for i, data in pairs(vaultData[name]) do
+		local ilvl = nil
+		local itemLink = C_WeeklyRewards.GetExampleRewardItemHyperlinks(data.id)
+		if itemLink then
+			ilvl = GetDetailedItemLevelInfo(itemLink)
+		end
+
+		local color = "|cFFFFFFFF"
+		if data.progress == 0 then
+			color = "|cFFFF0000"
+		elseif data.progress >= data.threshold then
+			color = "|cFF00FF00"
+		else
+			color = "|cFFFFFF00"
+		end
+
+		if res ~= "" then
+			res = res .. " "
+		end
+
+		if ilvl then
+			res = res .. " |cFFFFFFFF(" .. color .. ilvl .. "|cFFFFFFFF" .. ")"
+		else
+			res = res .. "         "
+		end
+	end
+
+	return res
+end
+
+local reshii = false
 local fEV = CreateFrame("Frame")
-fEV:RegisterEvent("PLAYER_ENTERING_WORLD")
-fEV:RegisterEvent("ADDON_LOADED")
-fEV:SetScript("OnEvent", EVOnEvent)
+ExpansionUtils:RegisterEvent(fEV, "PLAYER_LOGIN")
+ExpansionUtils:OnEvent(
+	fEV,
+	function()
+		ExpansionUtils:UnregisterEvent(fEV, "PLAYER_LOGIN")
+		ExpansionUtils:SetAddonOutput("ExpansionUtils", 133740)
+		ExpansionUtils:SetVersion(133740, "1.0.0")
+		if EVTAB == nil or EVTAB["MMBtnReshiWrap"] == nil or EVTAB["MMBtnGreatVault"] == nil then
+			EVTAB = EVTAB or {}
+			EVTAB["MMBtnReshiWrap"] = EVTAB["MMBtnReshiWrap"] or {}
+			EVTAB["MMBtnGreatVault"] = EVTAB["MMBtnGreatVault"] or {}
+			ExpansionUtils:SV(EVTAB["MMBtnReshiWrap"], "MMBTNRESHIIWRAP", true)
+			ExpansionUtils:SV(EVTAB["MMBtnGreatVault"], "MMBTNGREATVAULT", true)
+		end
+
+		if ExpansionUtils:GetWoWBuild() == "RETAIL" then
+			if ExpansionUtils:GV(EVTAB["MMBtnReshiWrap"], "MMBTNRESHIIWRAP", true) then
+				local btnReshii = ExpansionUtils:CreateMinimapButton(
+					{
+						["name"] = "ReshiiWraps",
+						["atlas"] = "poi-workorders",
+						["dbtab"] = EVTAB["MMBtnReshiWrap"],
+						["vTT"] = {{ExpansionUtils:Trans("LID_RESHIIWRAP"), "|T136033:16:16:0:0|t ExpansionUtils"}, {ExpansionUtils:Trans("LID_LEFTCLICK"), ExpansionUtils:Trans("LID_TOGGLERESHIIWRAP")}},
+						["funcL"] = function()
+							if GenericTraitUI_LoadUI and reshii == false then
+								reshii = true
+								GenericTraitUI_LoadUI()
+							end
+
+							if GenericTraitFrame then
+								GenericTraitFrame:SetSystemID(29)
+								GenericTraitFrame:SetTreeID(1115)
+								ToggleFrame(GenericTraitFrame)
+							end
+						end,
+						["dbkey"] = "MMBTNRESHIIWRAP",
+						["parent"] = CharacterBackSlot,
+						["point"] = {"Right", CharacterBackSlot, "Left", 4, 0}
+					}
+				)
+
+				btnReshii:SetScript(
+					"OnUpdate",
+					function()
+						local itemID = GetInventoryItemID("player", 15)
+						if itemID and itemID == 235499 then
+							btnReshii:SetAlpha(1)
+							btnReshii:EnableMouse(true)
+						else
+							btnReshii:SetAlpha(0)
+							btnReshii:EnableMouse(false)
+						end
+					end
+				)
+			end
+
+			if ExpansionUtils:GV(EVTAB["MMBtnGreatVault"], "MMBTNVAULT", true) then
+				local mmbtn = nil
+				ExpansionUtils:CreateMinimapButton(
+					{
+						["name"] = "ExpansionUtilsGreatVault",
+						["atlas"] = "GreatVault-32x32",
+						["var"] = mmbtn,
+						["dbtab"] = EVTAB["MMBtnGreatVault"],
+						["vTT"] = {{ExpansionUtils:Trans("LID_GREATVAULT"), "|T136033:16:16:0:0|t ExpansionUtils"}, {ExpansionUtils:Trans("LID_LEFTCLICK"), ExpansionUtils:Trans("LID_TOGGLEGREATVAULT")}},
+						["vTTUpdate"] = function(sel, tt)
+							if C_WeeklyRewards.HasAvailableRewards() or C_WeeklyRewards.HasGeneratedRewards() then
+								tt:AddDoubleLine(" ", " ")
+								tt:AddDoubleLine("GREAT VAULT HAS REWARD", "")
+							end
+
+							tt:AddDoubleLine(" ", " ")
+							local vaultData = GetVaultData()
+							local raid = GetVaultStatus(vaultData, "raid")
+							tt:AddDoubleLine(RAID, raid)
+							local raidIlvl = GetVaultStatusIlvl(vaultData, "raid")
+							if strtrim(raidIlvl) ~= "" then
+								tt:AddDoubleLine(" ", raidIlvl)
+							end
+
+							tt:AddDoubleLine(" ", " ")
+							local mplus = GetVaultStatus(vaultData, "mplus")
+							tt:AddDoubleLine(PLAYER_DIFFICULTY_MYTHIC_PLUS, mplus)
+							local mplusIlvl = GetVaultStatusIlvl(vaultData, "mplus")
+							if strtrim(mplusIlvl) ~= "" then
+								tt:AddDoubleLine(" ", mplusIlvl)
+							end
+
+							tt:AddDoubleLine(" ", " ")
+							local world = GetVaultStatus(vaultData, "world")
+							tt:AddDoubleLine(WORLD, world)
+							local worldIlvl = GetVaultStatusIlvl(vaultData, "world")
+							if strtrim(worldIlvl) ~= "" then
+								tt:AddDoubleLine(" ", worldIlvl)
+							end
+
+							for i = 1, 99 do
+								local tr = _G[ExpansionUtils:GetName(tt) .. "TextRight" .. i]
+								if tr then
+									tr:SetFontObject("ConsoleFontNormal")
+									local f1, _, f3 = tr:GetFont()
+									tr:SetFont(f1, 14, f3)
+								end
+							end
+
+							return false
+						end,
+						["funcL"] = function()
+							if not InCombatLockdown() then
+								if WeeklyRewardsFrame == nil then
+									WeeklyRewards_ShowUI()
+								elseif WeeklyRewardsFrame:IsShown() then
+									WeeklyRewardsFrame:Hide()
+								else
+									WeeklyRewards_ShowUI()
+								end
+							end
+						end,
+						["addoncomp"] = false,
+						["sw"] = 64,
+						["sh"] = 64,
+						["border"] = false,
+						["dbkey"] = "MMBTNGREATVAULT"
+					}
+				)
+			end
+		end
+	end, "ExpansionUtils"
+)

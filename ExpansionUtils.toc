@@ -1,12 +1,12 @@
 ## Interface-Classic: 11507
 ## Interface-BCC: 20504
 ## Interface-Wrath: 30403
-## Interface-Cata: 40401, 40402
+## Interface-Cata: 40402
 ## Interface-Mists: 50500
-## Interface: 110007, 110100, 110105, 110107, 110200
+## Interface: 110107, 110200
 
-## Version: 1.1.37
-## Title: ExtendedVariables by |cff3FC7EBD4KiR |T132115:16:16:0:0|t 
+## Version: 1.0.0
+## Title: E|cff3FC7EBxpansion|rU|cff3FC7EBtils|r by |cff3FC7EBD4KiR |T132115:16:16:0:0|t 
 ## Notes: item level
 ## Author: D|cff3FC7EB4KiR |T132115:16:16:0:0|t
 ## Category: D|cff3FC7EB4KiR |T132115:16:16:0:0|t
@@ -17,5 +17,17 @@
 ## X-Curse-Project-ID: 449513
 ## X-Wago-ID: XrNkvzGa
 ## IconTexture: 133740
+
+libs\D4Lib\D4Lib.xml
+
+locale\enUS.lua
+locale\deDE.lua
+locale\esES.lua
+locale\frFR.lua
+locale\itIT.lua
+locale\koKR.lua
+locale\ptBR.lua
+locale\ruRU.lua
+locale\zhCN.lua
 
 core.lua
