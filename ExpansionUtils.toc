@@ -5,9 +5,10 @@
 ## Interface-Mists: 50500
 ## Interface: 110107, 110200
 
-## Version: 1.0.2
+## Version: 1.2.0
 ## Title: E|cff3FC7EBxpansion|rU|cff3FC7EBtils|r by |cff3FC7EBD4KiR |T132115:16:16:0:0|t 
-## Notes: item level
+## Notes: Adds a button for Reshii Wrap and the Great Vault.
+## Notes-deDE: Fügt eine Knopf für Reshii Wrap und den Großen Tresor hinzu.
 ## Notes-ruRU: Добавляет кнопку для Повязки реши и Великого Хранилища
 ## Author: D|cff3FC7EB4KiR |T132115:16:16:0:0|t
 ## Category: D|cff3FC7EB4KiR |T132115:16:16:0:0|t
