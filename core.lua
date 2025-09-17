@@ -90,7 +90,7 @@ ExpansionUtils:OnEvent(
 	function()
 		ExpansionUtils:UnregisterEvent(fEV, "PLAYER_LOGIN")
 		ExpansionUtils:SetAddonOutput("ExpansionUtils", 133740)
-		ExpansionUtils:SetVersion(133740, "1.2.3")
+		ExpansionUtils:SetVersion(133740, "1.2.4")
 		if EVTAB == nil or EVTAB["MMBtnReshiWrap"] == nil or EVTAB["MMBtnGreatVault"] == nil then
 			EVTAB = EVTAB or {}
 			EVTAB["MMBtnReshiWrap"] = EVTAB["MMBtnReshiWrap"] or {}
@@ -121,7 +121,8 @@ ExpansionUtils:OnEvent(
 						end,
 						["dbkey"] = "MMBTNRESHIIWRAP",
 						["parent"] = CharacterBackSlot,
-						["point"] = {"Right", CharacterBackSlot, "Left", 4, 0}
+						["point"] = {"Right", CharacterBackSlot, "Left", 4, 0},
+						["noalpha"] = true,
 					}
 				)
 
@@ -206,7 +207,8 @@ ExpansionUtils:OnEvent(
 						["sw"] = 64,
 						["sh"] = 64,
 						["border"] = false,
-						["dbkey"] = "MMBTNGREATVAULT"
+						["dbkey"] = "MMBTNGREATVAULT",
+						["noalpha"] = true
 					}
 				)
 			end
