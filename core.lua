@@ -90,16 +90,52 @@ ExpansionUtils:OnEvent(
 	function()
 		ExpansionUtils:UnregisterEvent(fEV, "PLAYER_LOGIN")
 		ExpansionUtils:SetAddonOutput("ExpansionUtils", 133740)
-		ExpansionUtils:SetVersion(133740, "1.2.6")
-		if EVTAB == nil or EVTAB["MMBtnReshiWrap"] == nil or EVTAB["MMBtnGreatVault"] == nil then
-			EVTAB = EVTAB or {}
+		ExpansionUtils:SetVersion(133740, "1.2.7")
+		EVTAB = EVTAB or {}
+		if EVTAB["MMBtnReshiWrap"] == nil then
 			EVTAB["MMBtnReshiWrap"] = EVTAB["MMBtnReshiWrap"] or {}
-			EVTAB["MMBtnGreatVault"] = EVTAB["MMBtnGreatVault"] or {}
 			ExpansionUtils:SV(EVTAB["MMBtnReshiWrap"], "MMBTNRESHIIWRAP", true)
+		end
+
+		if EVTAB["MMBtnGreatVault"] == nil then
+			EVTAB["MMBtnGreatVault"] = EVTAB["MMBtnGreatVault"] or {}
 			ExpansionUtils:SV(EVTAB["MMBtnGreatVault"], "MMBTNGREATVAULT", true)
 		end
 
+		if EVTAB["MMBtnCooldownViewerSettings"] == nil then
+			EVTAB["MMBtnCooldownViewerSettings"] = EVTAB["MMBtnCooldownViewerSettings"] or {}
+			ExpansionUtils:SV(EVTAB["MMBtnCooldownViewerSettings"], "MMBTNCooldownViewerSettings", true)
+		end
+
 		if ExpansionUtils:GetWoWBuild() == "RETAIL" then
+			if ExpansionUtils:GV(EVTAB["MMBtnCooldownViewerSettings"], "MMBTNCooldownViewerSettings", true) then
+				local mmbtn = nil
+				ExpansionUtils:CreateMinimapButton(
+					{
+						["name"] = "CooldownViewerSettings",
+						["atlas"] = "QuestLog-icon-setting",
+						["var"] = mmbtn,
+						["dbtab"] = EVTAB["MMBtnCooldownViewerSettings"],
+						["vTT"] = {{ExpansionUtils:Trans("LID_CooldownViewerSettings"), "|T136033:16:16:0:0|t ExpansionUtils"}, {ExpansionUtils:Trans("LID_LEFTCLICK"), ExpansionUtils:Trans("LID_TOGGLECooldownViewerSettings")}},
+						["vTTUpdate"] = function(sel, tt) return false end,
+						["funcL"] = function()
+							if not InCombatLockdown() and CooldownViewerSettings then
+								if CooldownViewerSettings:IsVisible() then
+									CooldownViewerSettings:Hide()
+								else
+									CooldownViewerSettings:Show()
+								end
+							end
+						end,
+						["addoncomp"] = false,
+						["sw"] = 64,
+						["sh"] = 64,
+						["border"] = false,
+						["dbkey"] = "MMBTNCooldownViewerSettings"
+					}
+				)
+			end
+
 			if ExpansionUtils:GV(EVTAB["MMBtnReshiWrap"], "MMBTNRESHIIWRAP", true) then
 				local btnReshii = ExpansionUtils:CreateMinimapButton(
 					{
