@@ -90,7 +90,7 @@ ExpansionUtils:OnEvent(
 	function()
 		ExpansionUtils:UnregisterEvent(fEV, "PLAYER_LOGIN")
 		ExpansionUtils:SetAddonOutput("ExpansionUtils", 133740)
-		ExpansionUtils:SetVersion(133740, "1.2.10")
+		ExpansionUtils:SetVersion(133740, "1.2.11")
 		EVTAB = EVTAB or {}
 		if EVTAB["MMBtnReshiWrap"] == nil then
 			EVTAB["MMBtnReshiWrap"] = EVTAB["MMBtnReshiWrap"] or {}
@@ -150,8 +150,14 @@ ExpansionUtils:OnEvent(
 							end
 
 							if GenericTraitFrame then
-								GenericTraitFrame:SetSystemID(29)
-								GenericTraitFrame:SetTreeID(1115)
+								if GenericTraitFrame.SetSystemID then
+									GenericTraitFrame:SetSystemID(29)
+								end
+
+								if GenericTraitFrame.SetTreeID then
+									GenericTraitFrame:SetTreeID(1115)
+								end
+
 								ToggleFrame(GenericTraitFrame)
 							end
 						end,
