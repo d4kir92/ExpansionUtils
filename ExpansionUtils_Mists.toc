@@ -1,5 +1,5 @@
 ## Interface: 50503
-## Version: 1.2.12
+## Version: 1.2.13
 ## Title: E|cff3FC7EBxpansion|rU|cff3FC7EBtils|r |T133740:16:16:0:0|t by |cff3FC7EBD4KiR |T132115:16:16:0:0|t 
 ## Notes: Adds a button for Reshii Wrap and the Great Vault.
 ## Notes-deDE: Fügt eine Knopf für Reshii Wrap und den Großen Tresor hinzu.
