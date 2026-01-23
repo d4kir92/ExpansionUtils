@@ -5,7 +5,7 @@
 ## Interface-Mists: 50503
 ## Interface: 110207, 120000
 
-## Version: 1.2.14
+## Version: 1.2.15
 ## Title: E|cff3FC7EBxpansion|rU|cff3FC7EBtils|r by |cff3FC7EBD4KiR |T132115:16:16:0:0|t 
 ## Notes: Adds a button for Reshii Wrap and the Great Vault.
 ## Notes-deDE: Fügt eine Knopf für Reshii Wrap und den Großen Tresor hinzu.
