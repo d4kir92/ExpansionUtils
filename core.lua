@@ -82,6 +82,38 @@ local function GetVaultStatusIlvl(vaultData, name)
 	return res
 end
 
+function ExpansionUtils:FixCastBar(castbar, notInterruptible)
+	if castbar.BorderShield == nil then
+		castbar.BorderShield = castbar:CreateTexture(nil, "OVERLAY", nil, -2)
+		castbar.BorderShield:SetTexture("Interface\\AddOns\\ExpansionUtils\\media\\unkickable")
+		castbar.BorderShield:SetTexCoord(0, 1, 0, 1)
+		castbar.BorderShield:SetSize(32, 32)
+		if castbar.Icon then
+			castbar.BorderShield:SetPoint("CENTER", castbar.Icon, "CENTER", 0, -2)
+			castbar.BorderShield:SetDrawLayer("OVERLAY", -2)
+			castbar.Icon:SetDrawLayer("OVERLAY", -1)
+		else
+			castbar.BorderShield:SetPoint("LEFT", castbar.Icon, "LEFT", 0, 0)
+		end
+	end
+
+	castbar.BorderShield:ClearAllPoints()
+	castbar.BorderShield:SetPoint("CENTER", castbar.Icon, "CENTER", -0.6, -2)
+	if notInterruptible then
+		castbar.BorderShield:Show()
+		if castbar.BarBorder then
+			castbar.BarBorder:Show()
+		end
+
+		castbar:SetStatusBarColor(0.5, 0.5, 0.5)
+	else
+		castbar.BorderShield:Hide()
+		if castbar.BarBorder then
+			castbar.BarBorder:Hide()
+		end
+	end
+end
+
 local reshii = false
 local fEV = CreateFrame("Frame")
 ExpansionUtils:RegisterEvent(fEV, "PLAYER_LOGIN")
@@ -90,7 +122,7 @@ ExpansionUtils:OnEvent(
 	function()
 		ExpansionUtils:UnregisterEvent(fEV, "PLAYER_LOGIN")
 		ExpansionUtils:SetAddonOutput("ExpansionUtils", 133740)
-		ExpansionUtils:SetVersion(133740, "1.2.18")
+		ExpansionUtils:SetVersion(133740, "1.2.19")
 		EVTAB = EVTAB or {}
 		if EVTAB["MMBtnReshiWrap"] == nil then
 			EVTAB["MMBtnReshiWrap"] = EVTAB["MMBtnReshiWrap"] or {}
@@ -324,6 +356,41 @@ ExpansionUtils:OnEvent(
 					)
 				end
 			end
+		end
+
+		if true then
+			local frame = CreateFrame("Frame")
+			frame:RegisterEvent("UNIT_SPELLCAST_START")
+			frame:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START")
+			frame:RegisterEvent("PLAYER_TARGET_CHANGED")
+			local function UpdateShieldIcon(unit)
+				if unit ~= "target" and unit ~= "focus" then return end
+				local _, _, _, _, _, _, _, notInterruptible = UnitCastingInfo(unit)
+				if notInterruptible == nil then
+					_, _, _, _, _, _, notInterruptible = UnitChannelInfo(unit)
+				end
+
+				if unit == "target" then
+					if DragonflightUITargetCastbar then
+						ExpansionUtils:FixCastBar(DragonflightUITargetCastbar, notInterruptible)
+					else
+						ExpansionUtils:FixCastBar(TargetFrameSpellBar, notInterruptible)
+					end
+				elseif unit == "focus" then
+					if DragonflightUIFocusCastbar then
+						ExpansionUtils:FixCastBar(DragonflightUIFocusCastbar, notInterruptible)
+					else
+						ExpansionUtils:FixCastBar(FocusFrameSpellBar, notInterruptible)
+					end
+				end
+			end
+
+			frame:SetScript(
+				"OnEvent",
+				function(self, event, unit)
+					UpdateShieldIcon(unit or "target")
+				end
+			)
 		end
 	end, "ExpansionUtils"
 )
