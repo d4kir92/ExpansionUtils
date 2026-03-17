@@ -122,7 +122,7 @@ ExpansionUtils:OnEvent(
 	function()
 		ExpansionUtils:UnregisterEvent(fEV, "PLAYER_LOGIN")
 		ExpansionUtils:SetAddonOutput("ExpansionUtils", 133740)
-		ExpansionUtils:SetVersion(133740, "1.2.19")
+		ExpansionUtils:SetVersion(133740, "1.2.20")
 		EVTAB = EVTAB or {}
 		if EVTAB["MMBtnReshiWrap"] == nil then
 			EVTAB["MMBtnReshiWrap"] = EVTAB["MMBtnReshiWrap"] or {}
@@ -358,7 +358,7 @@ ExpansionUtils:OnEvent(
 			end
 		end
 
-		if true then
+		if ExpansionUtils:GetWoWBuild() ~= "RETAIL" then
 			local frame = CreateFrame("Frame")
 			frame:RegisterEvent("UNIT_SPELLCAST_START")
 			frame:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START")
