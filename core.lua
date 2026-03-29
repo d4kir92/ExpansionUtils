@@ -122,7 +122,7 @@ ExpansionUtils:OnEvent(
 	function()
 		ExpansionUtils:UnregisterEvent(fEV, "PLAYER_LOGIN")
 		ExpansionUtils:SetAddonOutput("ExpansionUtils", 133740)
-		ExpansionUtils:SetVersion(133740, "1.2.20")
+		ExpansionUtils:SetVersion(133740, "1.2.21")
 		EVTAB = EVTAB or {}
 		if EVTAB["MMBtnReshiWrap"] == nil then
 			EVTAB["MMBtnReshiWrap"] = EVTAB["MMBtnReshiWrap"] or {}
@@ -288,76 +288,6 @@ ExpansionUtils:OnEvent(
 			end
 		end
 
-		if ChallengesKeystoneFrame then
-			local startButton = ChallengesKeystoneFrame.StartButton
-			if startButton then
-				local sw, sh = startButton:GetSize()
-				ChallengesKeystoneFrame.readyCheck = CreateFrame("Button", "readyCheck", ChallengesKeystoneFrame, "UIPanelButtonTemplate")
-				ChallengesKeystoneFrame.readyCheck:SetSize(sw, sh)
-				ChallengesKeystoneFrame.readyCheck:SetPoint("RIGHT", startButton, "LEFT", -4, 0)
-				ChallengesKeystoneFrame.readyCheck:SetText(READY_CHECK)
-				ChallengesKeystoneFrame.readyCheck:SetScript(
-					"OnClick",
-					function()
-						DoReadyCheck()
-					end
-				)
-
-				ChallengesKeystoneFrame.readyCheckText = ChallengesKeystoneFrame:CreateFontString(nil, nil, "GameFontNormal")
-				ChallengesKeystoneFrame.readyCheckText:SetSize(sw, sh)
-				ChallengesKeystoneFrame.readyCheckText:SetPoint("BOTTOM", ChallengesKeystoneFrame.readyCheck, "TOP", 0, -4)
-				ChallengesKeystoneFrame.readyCheckText:SetText("")
-				ChallengesKeystoneFrame:HookScript(
-					"OnUpdate",
-					function()
-						local count = 0
-						if GetReadyCheckStatus("player") == nil then
-							ChallengesKeystoneFrame.readyCheckText:SetText("")
-
-							return
-						end
-
-						if GetReadyCheckStatus("player") == "ready" then
-							count = count + 1
-						end
-
-						for i = 1, 4 do
-							if UnitExists("party" .. i) and GetReadyCheckStatus("party" .. i) == "ready" then
-								count = count + 1
-							end
-						end
-
-						if count ~= GetNumGroupMembers() then
-							ChallengesKeystoneFrame.readyCheckText:SetText(count .. "/" .. GetNumGroupMembers())
-						else
-							ChallengesKeystoneFrame.readyCheckText:SetText(ALL)
-						end
-					end
-				)
-
-				local countdowns = {3, 5, 10}
-				for x, w in pairs(countdowns) do
-					ChallengesKeystoneFrame["countdown" .. w] = CreateFrame("Button", "countdown" .. w, ChallengesKeystoneFrame, "UIPanelButtonTemplate")
-					ChallengesKeystoneFrame["countdown" .. w]:SetSize(sw / #countdowns, sh)
-					ChallengesKeystoneFrame["countdown" .. w]:SetPoint("LEFT", startButton, "RIGHT", 4 + ((x - 1) * (sw / #countdowns + 4)), 0)
-					ChallengesKeystoneFrame["countdown" .. w]:SetText(SECOND_ONELETTER_ABBR:format(w))
-					ChallengesKeystoneFrame["countdown" .. w]:SetScript(
-						"OnClick",
-						function()
-							if SlashCmdList["DEADLYBOSSMODS"] then
-								SlashCmdList["DEADLYBOSSMODS"]("pull " .. w)
-							elseif TankHelper:IsAddOnLoaded("BigWigs") then
-								DEFAULT_CHAT_FRAME.editBox:SetText("/pull " .. w)
-								ChatEdit_SendText(DEFAULT_CHAT_FRAME.editBox, 0)
-							elseif C_PartyInfo and C_PartyInfo.DoCountdown then
-								C_PartyInfo.DoCountdown(w)
-							end
-						end
-					)
-				end
-			end
-		end
-
 		if ExpansionUtils:GetWoWBuild() ~= "RETAIL" then
 			local frame = CreateFrame("Frame")
 			frame:RegisterEvent("UNIT_SPELLCAST_START")
@@ -393,4 +323,84 @@ ExpansionUtils:OnEvent(
 			)
 		end
 	end, "ExpansionUtils"
+)
+
+local fCUI = CreateFrame("Frame")
+ExpansionUtils:RegisterEvent(fCUI, "ADDON_LOADED")
+ExpansionUtils:OnEvent(
+	fCUI,
+	function(sel, event, addonName)
+		if addonName == "Blizzard_ChallengesUI" then
+			ExpansionUtils:UnregisterEvent(fCUI, "ADDON_LOADED")
+			if ChallengesKeystoneFrame then
+				local startButton = ChallengesKeystoneFrame.StartButton
+				if startButton then
+					local sw, sh = startButton:GetSize()
+					ChallengesKeystoneFrame.readyCheck = CreateFrame("Button", "readyCheck", ChallengesKeystoneFrame, "UIPanelButtonTemplate")
+					ChallengesKeystoneFrame.readyCheck:SetSize(sw, sh)
+					ChallengesKeystoneFrame.readyCheck:SetPoint("RIGHT", startButton, "LEFT", -4, 0)
+					ChallengesKeystoneFrame.readyCheck:SetText(READY_CHECK)
+					ChallengesKeystoneFrame.readyCheck:SetScript(
+						"OnClick",
+						function()
+							DoReadyCheck()
+						end
+					)
+
+					ChallengesKeystoneFrame.readyCheckText = ChallengesKeystoneFrame:CreateFontString(nil, nil, "GameFontNormal")
+					ChallengesKeystoneFrame.readyCheckText:SetSize(sw, sh)
+					ChallengesKeystoneFrame.readyCheckText:SetPoint("BOTTOM", ChallengesKeystoneFrame.readyCheck, "TOP", 0, -4)
+					ChallengesKeystoneFrame.readyCheckText:SetText("")
+					ChallengesKeystoneFrame:HookScript(
+						"OnUpdate",
+						function()
+							local count = 0
+							if GetReadyCheckStatus("player") == nil then
+								ChallengesKeystoneFrame.readyCheckText:SetText("")
+
+								return
+							end
+
+							if GetReadyCheckStatus("player") == "ready" then
+								count = count + 1
+							end
+
+							for i = 1, 4 do
+								if UnitExists("party" .. i) and GetReadyCheckStatus("party" .. i) == "ready" then
+									count = count + 1
+								end
+							end
+
+							if count ~= GetNumGroupMembers() then
+								ChallengesKeystoneFrame.readyCheckText:SetText(count .. "/" .. GetNumGroupMembers())
+							else
+								ChallengesKeystoneFrame.readyCheckText:SetText(ALL)
+							end
+						end
+					)
+
+					local countdowns = {3, 5, 10}
+					for x, w in pairs(countdowns) do
+						ChallengesKeystoneFrame["countdown" .. w] = CreateFrame("Button", "countdown" .. w, ChallengesKeystoneFrame, "UIPanelButtonTemplate")
+						ChallengesKeystoneFrame["countdown" .. w]:SetSize(sw / #countdowns, sh)
+						ChallengesKeystoneFrame["countdown" .. w]:SetPoint("LEFT", startButton, "RIGHT", 4 + ((x - 1) * (sw / #countdowns + 4)), 0)
+						ChallengesKeystoneFrame["countdown" .. w]:SetText(SECOND_ONELETTER_ABBR:format(w))
+						ChallengesKeystoneFrame["countdown" .. w]:SetScript(
+							"OnClick",
+							function()
+								if SlashCmdList["DEADLYBOSSMODS"] then
+									SlashCmdList["DEADLYBOSSMODS"]("pull " .. w)
+								elseif TankHelper:IsAddOnLoaded("BigWigs") then
+									DEFAULT_CHAT_FRAME.editBox:SetText("/pull " .. w)
+									ChatEdit_SendText(DEFAULT_CHAT_FRAME.editBox, 0)
+								elseif C_PartyInfo and C_PartyInfo.DoCountdown then
+									C_PartyInfo.DoCountdown(w)
+								end
+							end
+						)
+					end
+				end
+			end
+		end
+	end, "ExpansionUtils ChallengesUI"
 )
