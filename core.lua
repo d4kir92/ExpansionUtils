@@ -122,7 +122,7 @@ ExpansionUtils:OnEvent(
 	function()
 		ExpansionUtils:UnregisterEvent(fEV, "PLAYER_LOGIN")
 		ExpansionUtils:SetAddonOutput("ExpansionUtils", 133740)
-		ExpansionUtils:SetVersion(133740, "1.2.22")
+		ExpansionUtils:SetVersion(133740, "1.2.23")
 		EVTAB = EVTAB or {}
 		if EVTAB["MMBtnReshiWrap"] == nil then
 			EVTAB["MMBtnReshiWrap"] = EVTAB["MMBtnReshiWrap"] or {}
@@ -334,42 +334,46 @@ ExpansionUtils:OnEvent(
 	fCUI,
 	function(sel, event, ...)
 		if event == "READY_CHECK_CONFIRM" then
-			local isReady = select(2, ...)
-			if isReady then
-				lastCount = lastCount + 1
-			end
+			if ChallengesKeystoneFrame then
+				local isReady = select(2, ...)
+				if isReady then
+					lastCount = lastCount + 1
+				end
 
-			if (lastCount > 0) and lastCount ~= GetNumGroupMembers() then
-				if READY then
-					ChallengesKeystoneFrame.readyCheckText:SetText("|cffffff00" .. lastCount .. "/" .. GetNumGroupMembers() .. " " .. READY)
-				else
-					ChallengesKeystoneFrame.readyCheckText:SetText("|cffffff00" .. lastCount .. "/" .. GetNumGroupMembers() .. " READY")
+				if (lastCount > 0) and lastCount ~= GetNumGroupMembers() then
+					if READY then
+						ChallengesKeystoneFrame.readyCheckText:SetText("|cffffff00" .. lastCount .. "/" .. GetNumGroupMembers() .. " " .. READY)
+					else
+						ChallengesKeystoneFrame.readyCheckText:SetText("|cffffff00" .. lastCount .. "/" .. GetNumGroupMembers() .. " READY")
+					end
 				end
 			end
 		elseif event == "READY_CHECK_FINISHED" then
-			readyCheckDone = true
-			if lastCount == GetNumGroupMembers() then
-				if READY_CHECK_ALL_READY then
-					ChallengesKeystoneFrame.readyCheckText:SetText("|cff00ff00" .. READY_CHECK_ALL_READY)
-				elseif ALL then
-					ChallengesKeystoneFrame.readyCheckText:SetText("|cff00ff00" .. ALL)
+			if ChallengesKeystoneFrame then
+				readyCheckDone = true
+				if lastCount == GetNumGroupMembers() then
+					if READY_CHECK_ALL_READY then
+						ChallengesKeystoneFrame.readyCheckText:SetText("|cff00ff00" .. READY_CHECK_ALL_READY)
+					elseif ALL then
+						ChallengesKeystoneFrame.readyCheckText:SetText("|cff00ff00" .. ALL)
+					else
+						ChallengesKeystoneFrame.readyCheckText:SetText("|cff00ff00" .. "ALL READY")
+					end
 				else
-					ChallengesKeystoneFrame.readyCheckText:SetText("|cff00ff00" .. "ALL READY")
+					if NOT_READY then
+						ChallengesKeystoneFrame.readyCheckText:SetText("|cffff0000" .. NOT_READY)
+					else
+						ChallengesKeystoneFrame.readyCheckText:SetText("|cffff0000" .. "NOT READY")
+					end
 				end
-			else
-				if NOT_READY then
-					ChallengesKeystoneFrame.readyCheckText:SetText("|cffff0000" .. NOT_READY)
-				else
-					ChallengesKeystoneFrame.readyCheckText:SetText("|cffff0000" .. "NOT READY")
-				end
-			end
 
-			C_Timer.After(
-				6,
-				function()
-					ChallengesKeystoneFrame.readyCheckText:SetText("")
-				end
-			)
+				C_Timer.After(
+					6,
+					function()
+						ChallengesKeystoneFrame.readyCheckText:SetText("")
+					end
+				)
+			end
 		else
 			local addonName = select(1, ...)
 			if addonName == "Blizzard_ChallengesUI" then
