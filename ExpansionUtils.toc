@@ -1,15 +1,23 @@
 ## Interface-Classic: 11509
 ## Interface-BCC: 20506
-## Interface-Wrath: 30300, 30403
+## Interface-Wrath: 30403
 ## Interface-Cata: 40402
 ## Interface-Mists: 50504
 ## Interface: 120100, 120007
 
-## Version: 1.2.31
+## Version: 1.2.32
 ## Title: ExpansionUtils by |cff55d2ffD4KiR |T132115:16:16:0:0|t 
 ## Notes: Adds a button for Reshii Wrap and the Great Vault.
 ## Notes-deDE: Fügt eine Knopf für Reshii Wrap und den Großen Tresor hinzu.
-## Notes-ruRU: Добавляет кнопку для Повязки реши и Великого Хранилища
+## Notes-esES: Añade un botón para el Envoltorio de Reshii y la Gran Bóveda.
+## Notes-esMX: Añade un botón para el Envoltorio de Reshii y la Gran Bóveda.
+## Notes-frFR: Ajoute un bouton pour l'Emballage de Reshii et le Grand Coffre.
+## Notes-itIT: Aggiunge un pulsante per l'Involucro di Reshii e il Grande Forziere.
+## Notes-koKR: 레시의 감싸개와 위대한 금고 버튼을 추가합니다.
+## Notes-ptBR: Adiciona um botão para o Envoltório de Reshii e o Grande Cofre.
+## Notes-ruRU: Добавляет кнопку для Повязки реши и Великого Хранилища.
+## Notes-zhCN: 添加瑞西的包裹和至宝仓库的按钮。
+## Notes-zhTW: 新增瑞西的包裹和至寶倉庫的按鈕。
 ## Author: D4KiR |T132115:16:16:0:0|t
 ## Category: Expansion Features
 ## Category-deDE: Erweiterungsfeatures
