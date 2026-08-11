@@ -6,3 +6,5 @@ ExpansionUtils:AddTrans("deDE", "LID_TOGGLEGREATVAULT", "Große Schatzkammer anz
 ExpansionUtils:AddTrans("deDE", "LID_TOGGLERESHIIWRAP", "Reshiiwickel Upgrader anzeigen")
 ExpansionUtils:AddTrans("deDE", "LID_SHOWVAULTMMBTN", "Große Schatzkammer an der Minimap anzeigen")
 ExpansionUtils:AddTrans("deDE", "LID_MMBTNRESHIIWRAP", "Reshiiwickel an der Minimap anzeigen")
+ExpansionUtils:AddTrans("deDE", "LID_CooldownViewerSettings", "Abklingzeit-Anzeige Einstellungen")
+ExpansionUtils:AddTrans("deDE", "LID_TOGGLECooldownViewerSettings", "Abklingzeit-Anzeige Einstellungen umschalten")

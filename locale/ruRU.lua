@@ -6,3 +6,5 @@ ExpansionUtils:AddTrans("ruRU", "LID_TOGGLEGREATVAULT", "Вкл./выкл. Ве�
 ExpansionUtils:AddTrans("ruRU", "LID_TOGGLERESHIIWRAP", "Вкл./выкл. Улучшение Повязки реши")
 ExpansionUtils:AddTrans("ruRU", "LID_SHOWVAULTMMBTN", "Показывать иконку Великого Хранилища на миникарте")
 ExpansionUtils:AddTrans("ruRU", "LID_MMBTNRESHIIWRAP", "Показывать иконку Повязки реши на миникарте")
+ExpansionUtils:AddTrans("ruRU", "LID_CooldownViewerSettings", "Настройки просмотра перезарядок")
+ExpansionUtils:AddTrans("ruRU", "LID_TOGGLECooldownViewerSettings", "Вкл./выкл. Настройки просмотра перезарядок")

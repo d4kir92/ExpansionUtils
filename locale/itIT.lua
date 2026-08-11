@@ -2,7 +2,9 @@
 local _, ExpansionUtils = ...
 ExpansionUtils:AddTrans("itIT", "LID_GREATVAULT", "Great Vault")
 ExpansionUtils:AddTrans("itIT", "LID_RESHIIWRAP", "Reshii Wrap")
-ExpansionUtils:AddTrans("itIT", "LID_TOGGLEGREATVAULT", "Toggle Great Vault")
-ExpansionUtils:AddTrans("itIT", "LID_TOGGLERESHIIWRAP", "Toggle Reshii Wrap Upgrader")
-ExpansionUtils:AddTrans("itIT", "LID_SHOWVAULTMMBTN", "Show the Great Vault at the minimap")
-ExpansionUtils:AddTrans("itIT", "LID_MMBTNRESHIIWRAP", "Show the Reshii Wrap at the minimap")
+ExpansionUtils:AddTrans("itIT", "LID_TOGGLEGREATVAULT", "Attiva/disattiva Great Vault")
+ExpansionUtils:AddTrans("itIT", "LID_TOGGLERESHIIWRAP", "Attiva/disattiva il miglioratore di Reshii Wrap")
+ExpansionUtils:AddTrans("itIT", "LID_SHOWVAULTMMBTN", "Mostra Great Vault sulla minimappa")
+ExpansionUtils:AddTrans("itIT", "LID_MMBTNRESHIIWRAP", "Mostra Reshii Wrap sulla minimappa")
+ExpansionUtils:AddTrans("itIT", "LID_CooldownViewerSettings", "Impostazioni del Visualizzatore Tempi di Recupero")
+ExpansionUtils:AddTrans("itIT", "LID_TOGGLECooldownViewerSettings", "Attiva/disattiva le Impostazioni del Visualizzatore Tempi di Recupero")

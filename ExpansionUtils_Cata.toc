@@ -1,5 +1,5 @@
 ## Interface: 40402
-## Version: 1.2.32
+## Version: 1.2.33
 ## Title: ExpansionUtils |T133740:16:16:0:0|t by |cff55d2ffD4KiR |T132115:16:16:0:0|t 
 ## Notes: Adds a button for Reshii Wrap and the Great Vault.
 ## Notes-deDE: Fügt eine Knopf für Reshii Wrap und den Großen Tresor hinzu.
@@ -36,11 +36,13 @@ libs\D4Lib\D4Lib.xml
 locale\enUS.lua
 locale\deDE.lua
 locale\esES.lua
+locale\esMX.lua
 locale\frFR.lua
 locale\itIT.lua
 locale\koKR.lua
 locale\ptBR.lua
 locale\ruRU.lua
 locale\zhCN.lua
+locale\zhTW.lua
 
 core.lua
