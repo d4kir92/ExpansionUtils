@@ -45,7 +45,6 @@
         "FocusFrame",
         "AbbreviateLargeNumbers",
         "AddonCompartmentFrame",
-        "MouseIsOver",
         "ChatEdit_ParseText"
     ]
 }

@@ -14,7 +14,7 @@ local function GetVaultData()
 		elseif data.type == 6 then
 			table.insert(res["world"], data)
 		else
-			ExpansionUtils:MSG("[GetVaultData] Missing Type:", data.type)
+			if data.type ~= 5 then ExpansionUtils:MSG("[GetVaultData] Missing Type:", data.type, data.progress, data.threshold) end
 		end
 	end
 	return res
@@ -100,7 +100,7 @@ ExpansionUtils:RegisterEvent(fEV, "PLAYER_LOGIN")
 ExpansionUtils:OnEvent(fEV, function()
 	ExpansionUtils:UnregisterEvent(fEV, "PLAYER_LOGIN")
 	ExpansionUtils:SetAddonOutput("ExpansionUtils", 133740)
-	ExpansionUtils:SetVersion(133740, "1.2.33")
+	ExpansionUtils:SetVersion(133740, "1.2.34")
 	EVTAB = EVTAB or {}
 	if EVTAB["MMBtnReshiWrap"] == nil then
 		EVTAB["MMBtnReshiWrap"] = EVTAB["MMBtnReshiWrap"] or {}
