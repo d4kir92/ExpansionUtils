@@ -16,3 +16,7 @@ ExpansionUtils:AddTrans("frFR", "LID_SAVEDNEWPOSITION", "Nouvelle position enreg
 ExpansionUtils:AddTrans("frFR", "LID_LOCKED", "Verrouillé")
 ExpansionUtils:AddTrans("frFR", "LID_UNLOCKED", "Déverrouillé")
 ExpansionUtils:AddTrans("frFR", "LID_NOVALEERAFOUND", "Valeera introuvable")
+ExpansionUtils:AddTrans("frFR", "LID_XPTHISDELVE", "XP dans cet abîme")
+ExpansionUtils:AddTrans("frFR", "LID_HIGHSCORE", "Record")
+ExpansionUtils:AddTrans("frFR", "LID_TIER", "Palier")
+ExpansionUtils:AddTrans("frFR", "LID_RESET", "Réinitialisé")

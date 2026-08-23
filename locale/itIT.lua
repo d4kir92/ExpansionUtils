@@ -16,3 +16,7 @@ ExpansionUtils:AddTrans("itIT", "LID_SAVEDNEWPOSITION", "Nuova posizione salvata
 ExpansionUtils:AddTrans("itIT", "LID_LOCKED", "Bloccato")
 ExpansionUtils:AddTrans("itIT", "LID_UNLOCKED", "Sbloccato")
 ExpansionUtils:AddTrans("itIT", "LID_NOVALEERAFOUND", "Valeera non trovata")
+ExpansionUtils:AddTrans("itIT", "LID_XPTHISDELVE", "PE in questo anfratto")
+ExpansionUtils:AddTrans("itIT", "LID_HIGHSCORE", "Record")
+ExpansionUtils:AddTrans("itIT", "LID_TIER", "Livello")
+ExpansionUtils:AddTrans("itIT", "LID_RESET", "Reimpostato")

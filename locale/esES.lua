@@ -16,3 +16,7 @@ ExpansionUtils:AddTrans("esES", "LID_SAVEDNEWPOSITION", "Nueva posición guardad
 ExpansionUtils:AddTrans("esES", "LID_LOCKED", "Bloqueado")
 ExpansionUtils:AddTrans("esES", "LID_UNLOCKED", "Desbloqueado")
 ExpansionUtils:AddTrans("esES", "LID_NOVALEERAFOUND", "Valeera no encontrada")
+ExpansionUtils:AddTrans("esES", "LID_XPTHISDELVE", "PX en esta profundidad")
+ExpansionUtils:AddTrans("esES", "LID_HIGHSCORE", "Récord")
+ExpansionUtils:AddTrans("esES", "LID_TIER", "Nivel")
+ExpansionUtils:AddTrans("esES", "LID_RESET", "Restablecido")

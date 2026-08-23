@@ -2,6 +2,9 @@ local _, ExpansionUtils = ...
 local bar = nil
 local ticker = nil
 local valeeraFactionID = nil
+local runStart = nil
+local runGain = 0
+local runKey = nil
 local function GetDB()
 	EVTAB = EVTAB or {}
 	EVTAB["ValeeraXPBar"] = EVTAB["ValeeraXPBar"] or {}
@@ -73,6 +76,126 @@ local function GetValeeraXP()
 	return level, maxLevel, value - minValue, maxValue - minValue, rep.name
 end
 
+local function GetValeeraTotal()
+	if valeeraFactionID == nil then return nil end
+	local rep = GetFriendshipData(valeeraFactionID)
+	if rep == nil then return nil end
+	return rep.standing or 0
+end
+
+local function GetDelveHeader()
+	if type(C_UIWidgetManager) ~= "table" then return nil end
+	if C_UIWidgetManager.GetAllWidgetsBySetID == nil or C_UIWidgetManager.GetScenarioHeaderDelvesWidgetVisualizationInfo == nil then return nil end
+	local setID = nil
+	if C_ScenarioInfo and C_ScenarioInfo.GetScenarioStepInfo then
+		local ok, step = pcall(C_ScenarioInfo.GetScenarioStepInfo)
+		if ok and type(step) == "table" then setID = step.widgetSetID end
+	end
+
+	if type(setID) ~= "number" or setID == 0 then return nil end
+	local ok2, widgets = pcall(C_UIWidgetManager.GetAllWidgetsBySetID, setID)
+	if not ok2 or type(widgets) ~= "table" then return nil end
+	for _, w in ipairs(widgets) do
+		local ok3, info = pcall(C_UIWidgetManager.GetScenarioHeaderDelvesWidgetVisualizationInfo, w.widgetID)
+		if ok3 and type(info) == "table" and info.tierText then return info end
+	end
+
+	return nil
+end
+
+local function GetDelveContext()
+	if GetInstanceInfo == nil then return nil end
+	local ok, name, instanceType, _, difficultyName = pcall(GetInstanceInfo)
+	if not ok or name == nil or name == "" then return nil end
+	if instanceType ~= "scenario" then return nil end
+	if C_DelvesUI and C_DelvesUI.HasActiveDelve then
+		local ok2, has = pcall(C_DelvesUI.HasActiveDelve)
+		if ok2 and has == false then return nil end
+	end
+
+	local tier = nil
+	local header = GetDelveHeader()
+	if header then
+		tier = tonumber(header.tierText)
+		if header.headerText and header.headerText ~= "" then name = header.headerText end
+	end
+
+	if tier == nil and difficultyName then tier = tonumber(strmatch(difficultyName, "%d+")) end
+	return name, tier
+end
+
+local function GetScores()
+	local db = GetDB()
+	local scores = ExpansionUtils:GV(db, "HIGHSCORE", nil)
+	if type(scores) ~= "table" then
+		scores = {}
+		ExpansionUtils:SV(db, "HIGHSCORE", scores)
+	end
+
+	return scores
+end
+
+local function GetBestScore()
+	local best = nil
+	for _, v in pairs(GetScores()) do
+		if type(v) == "table" and (best == nil or (v.xp or 0) > (best.xp or 0)) then best = v end
+	end
+
+	return best
+end
+
+local function IsValeeraUnitActive()
+	local unitName = nil
+	if valeeraFactionID then
+		local rep = GetFriendshipData(valeeraFactionID)
+		if rep then unitName = rep.name end
+	end
+
+	for i = 1, 4 do
+		local unit = "party" .. i
+		if UnitExists(unit) then
+			local name = UnitName(unit)
+			if name and (name == unitName or strfind(name, "Valeera", 1, true)) then return true end
+		end
+	end
+
+	return false
+end
+
+local function UpdateRun(active)
+	if active ~= true then
+		runStart = nil
+		runGain = 0
+		runKey = nil
+
+		return
+	end
+
+	local total = GetValeeraTotal()
+	if total == nil then return end
+	local name, tier = GetDelveContext()
+	local key = nil
+	if name then key = name .. "|" .. tostring(tier or 0) end
+	if runStart == nil or key ~= runKey then
+		runStart = total
+		runKey = key
+	end
+
+	runGain = total - runStart
+	if runGain < 0 then runGain = 0 end
+	if key and runGain > 0 then
+		local scores = GetScores()
+		local best = scores[key]
+		if type(best) ~= "table" or (best.xp or 0) < runGain then
+			scores[key] = {
+				["xp"] = runGain,
+				["name"] = name,
+				["tier"] = tier
+			}
+		end
+	end
+end
+
 local function FormatNr(nr)
 	if BreakUpLargeNumbers then return BreakUpLargeNumbers(nr) end
 	return tostring(nr)
@@ -93,6 +216,20 @@ local function UpdateBar()
 		return
 	end
 
+	local active = IsValeeraUnitActive()
+	UpdateRun(active)
+	if active ~= true then
+		bar:Hide()
+
+		return
+	end
+
+	if maxXP == nil or maxXP <= 0 or (level ~= nil and maxLevel ~= nil and maxLevel > 0 and level >= maxLevel) then
+		bar:Hide()
+
+		return
+	end
+
 	local title = name
 	if level then
 		title = title .. " |cFFFFFFFF" .. (LEVEL or "Level") .. " " .. level
@@ -100,23 +237,18 @@ local function UpdateBar()
 	end
 
 	bar.left:SetText(title)
-	if maxXP and maxXP > 0 then
-		bar.status:SetMinMaxValues(0, maxXP)
-		bar.status:SetValue(cur)
-		bar.right:SetText(FormatNr(cur) .. "|cFFAAAAAA/|r" .. FormatNr(maxXP) .. " |cFFFFFF00(" .. floor(cur / maxXP * 100) .. "%)")
-	else
-		bar.status:SetMinMaxValues(0, 1)
-		bar.status:SetValue(1)
-		bar.right:SetText("|cFF00FF00" .. (MAXIMUM or "MAX"))
-	end
-
+	bar.status:SetMinMaxValues(0, maxXP)
+	bar.status:SetValue(cur)
+	local right = FormatNr(cur) .. "|cFFAAAAAA/|r" .. FormatNr(maxXP) .. " |cFFFFFF00(" .. floor(cur / maxXP * 100) .. "%)"
+	if runGain > 0 then right = right .. " |cFF00FF00+" .. FormatNr(runGain) end
+	bar.right:SetText(right)
 	bar:Show()
 end
 
 local function CreateBar()
 	if bar then return bar end
 	bar = CreateFrame("Frame", "EUValeeraXPBar", UIParent)
-	bar:SetSize(240, 22)
+	bar:SetSize(340, 22)
 	bar:SetPoint("CENTER", UIParent, "CENTER", 0, -180)
 	bar:SetFrameStrata("MEDIUM")
 	ExpansionUtils:SetClampedToScreen(bar, true)
@@ -178,6 +310,27 @@ local function CreateBar()
 				GameTooltip:AddDoubleLine(XP or "XP", MAXIMUM or "MAX")
 			end
 
+			local runTxt = FormatNr(runGain)
+			local dName, dTier = GetDelveContext()
+			if dName then
+				local nm = dName
+				if dTier then nm = nm .. " (" .. ExpansionUtils:Trans("LID_TIER") .. " " .. dTier .. ")" end
+				runTxt = runTxt .. " |cFFAAAAAA(" .. nm .. ")"
+			end
+
+			GameTooltip:AddDoubleLine(ExpansionUtils:Trans("LID_XPTHISDELVE"), runTxt)
+			local best = GetBestScore()
+			if best then
+				local txt = FormatNr(best.xp or 0)
+				if best.name then
+					local nm = best.name
+					if best.tier then nm = nm .. " (" .. ExpansionUtils:Trans("LID_TIER") .. " " .. best.tier .. ")" end
+					txt = txt .. " |cFFAAAAAA(" .. nm .. ")"
+				end
+
+				GameTooltip:AddDoubleLine(ExpansionUtils:Trans("LID_HIGHSCORE"), txt)
+			end
+
 			GameTooltip:AddDoubleLine(" ", " ")
 			GameTooltip:AddDoubleLine(ExpansionUtils:Trans("LID_DRAGTOMOVE"), "/valeera")
 			GameTooltip:Show()
@@ -229,6 +382,7 @@ ExpansionUtils:OnEvent(
 			CreateBar()
 			ExpansionUtils:RegisterEvent(fVXP, "UPDATE_FACTION")
 			ExpansionUtils:RegisterEvent(fVXP, "PLAYER_ENTERING_WORLD")
+			ExpansionUtils:RegisterEvent(fVXP, "GROUP_ROSTER_UPDATE")
 			if ticker == nil then ticker = C_Timer.NewTicker(5, function() UpdateBar() end) end
 		end
 
@@ -258,20 +412,12 @@ ExpansionUtils:AddSlash(
 			else
 				ExpansionUtils:MSG(ExpansionUtils:Trans("LID_VALEERAXPBAR"), ExpansionUtils:Trans("LID_UNLOCKED"))
 			end
-		elseif cmd == "debug" then
-			local found = false
-			ForeachCompanion(
-				function(companionID, factionID)
-					found = true
-					ExpansionUtils:MSG("Companion", companionID, "Faction", factionID, GetFactionName(factionID) or "?")
-
-					return false
-				end
-			)
-
-			if not found then ExpansionUtils:MSG(ExpansionUtils:Trans("LID_NOVALEERAFOUND")) end
-			local level, maxLevel, cur, maxXP, name = GetValeeraXP()
-			ExpansionUtils:MSG("Valeera", tostring(name), tostring(level), tostring(maxLevel), tostring(cur), tostring(maxXP))
+		elseif cmd == "resetscore" then
+			ExpansionUtils:SV(db, "HIGHSCORE", {})
+			runStart = nil
+			runGain = 0
+			runKey = nil
+			ExpansionUtils:MSG(ExpansionUtils:Trans("LID_HIGHSCORE"), ExpansionUtils:Trans("LID_RESET"))
 		else
 			local show = ExpansionUtils:GV(db, "SHOWVALEERAXPBAR", true) ~= true
 			ExpansionUtils:SV(db, "SHOWVALEERAXPBAR", show)

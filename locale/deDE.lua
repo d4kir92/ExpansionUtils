@@ -16,3 +16,7 @@ ExpansionUtils:AddTrans("deDE", "LID_SAVEDNEWPOSITION", "Neue Position gespeiche
 ExpansionUtils:AddTrans("deDE", "LID_LOCKED", "Gesperrt")
 ExpansionUtils:AddTrans("deDE", "LID_UNLOCKED", "Entsperrt")
 ExpansionUtils:AddTrans("deDE", "LID_NOVALEERAFOUND", "Valeera nicht gefunden")
+ExpansionUtils:AddTrans("deDE", "LID_XPTHISDELVE", "XP in dieser Tiefe")
+ExpansionUtils:AddTrans("deDE", "LID_HIGHSCORE", "Highscore")
+ExpansionUtils:AddTrans("deDE", "LID_TIER", "Stufe")
+ExpansionUtils:AddTrans("deDE", "LID_RESET", "Zurückgesetzt")

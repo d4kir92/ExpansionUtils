@@ -16,3 +16,7 @@ ExpansionUtils:AddTrans("koKR", "LID_SAVEDNEWPOSITION", "새 위치가 저장되
 ExpansionUtils:AddTrans("koKR", "LID_LOCKED", "잠김")
 ExpansionUtils:AddTrans("koKR", "LID_UNLOCKED", "잠금 해제")
 ExpansionUtils:AddTrans("koKR", "LID_NOVALEERAFOUND", "Valeera를 찾을 수 없습니다")
+ExpansionUtils:AddTrans("koKR", "LID_XPTHISDELVE", "이번 구렁 경험치")
+ExpansionUtils:AddTrans("koKR", "LID_HIGHSCORE", "최고 기록")
+ExpansionUtils:AddTrans("koKR", "LID_TIER", "단계")
+ExpansionUtils:AddTrans("koKR", "LID_RESET", "초기화됨")

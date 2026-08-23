@@ -16,3 +16,7 @@ ExpansionUtils:AddTrans("ruRU", "LID_SAVEDNEWPOSITION", "Новая позици
 ExpansionUtils:AddTrans("ruRU", "LID_LOCKED", "Заблокировано")
 ExpansionUtils:AddTrans("ruRU", "LID_UNLOCKED", "Разблокировано")
 ExpansionUtils:AddTrans("ruRU", "LID_NOVALEERAFOUND", "Valeera не найдена")
+ExpansionUtils:AddTrans("ruRU", "LID_XPTHISDELVE", "Опыт за эту вылазку")
+ExpansionUtils:AddTrans("ruRU", "LID_HIGHSCORE", "Рекорд")
+ExpansionUtils:AddTrans("ruRU", "LID_TIER", "Уровень")
+ExpansionUtils:AddTrans("ruRU", "LID_RESET", "Сброшено")
