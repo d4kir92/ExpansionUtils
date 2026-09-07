@@ -270,6 +270,22 @@ ExpansionUtils:OnEvent(fEV, function()
 end, "ExpansionUtils")
 
 local lastCount = 0
+local function CountReadyPlayers()
+	local count = 0
+	if IsInRaid() then
+		for i = 1, GetNumGroupMembers() do
+			if GetReadyCheckStatus("raid" .. i) == "ready" then count = count + 1 end
+		end
+	else
+		if GetReadyCheckStatus("player") == "ready" then count = count + 1 end
+		for i = 1, GetNumSubgroupMembers() do
+			if GetReadyCheckStatus("party" .. i) == "ready" then count = count + 1 end
+		end
+	end
+
+	return count
+end
+
 local fCUI = CreateFrame("Frame")
 ExpansionUtils:RegisterEvent(fCUI, "ADDON_LOADED")
 ExpansionUtils:RegisterEvent(fCUI, "READY_CHECK_CONFIRM")
@@ -277,8 +293,7 @@ ExpansionUtils:RegisterEvent(fCUI, "READY_CHECK_FINISHED")
 ExpansionUtils:OnEvent(fCUI, function(sel, event, ...)
 	if event == "READY_CHECK_CONFIRM" then
 		if ChallengesKeystoneFrame then
-			local isReady = select(2, ...)
-			if isReady then lastCount = lastCount + 1 end
+			lastCount = CountReadyPlayers()
 			if (lastCount > 0) and lastCount ~= GetNumGroupMembers() then
 				if READY then
 					ChallengesKeystoneFrame.readyCheckText:SetText("|cffffff00" .. lastCount .. "/" .. GetNumGroupMembers() .. " " .. READY)
