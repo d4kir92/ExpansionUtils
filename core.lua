@@ -100,7 +100,7 @@ ExpansionUtils:RegisterEvent(fEV, "PLAYER_LOGIN")
 ExpansionUtils:OnEvent(fEV, function()
 	ExpansionUtils:UnregisterEvent(fEV, "PLAYER_LOGIN")
 	ExpansionUtils:SetAddonOutput("ExpansionUtils", 133740)
-	ExpansionUtils:SetVersion(133740, "1.2.37")
+	ExpansionUtils:SetVersion(133740, "1.2.38")
 	EVTAB = EVTAB or {}
 	if EVTAB["MMBtnReshiWrap"] == nil then
 		EVTAB["MMBtnReshiWrap"] = EVTAB["MMBtnReshiWrap"] or {}
@@ -282,7 +282,6 @@ local function CountReadyPlayers()
 			if GetReadyCheckStatus("party" .. i) == "ready" then count = count + 1 end
 		end
 	end
-
 	return count
 end
 
