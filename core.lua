@@ -183,7 +183,7 @@ ExpansionUtils:OnEvent(fEV, function()
 				["atlas"] = "GreatVault-32x32",
 				["var"] = mmbtn,
 				["dbtab"] = EVTAB["MMBtnGreatVault"],
-				["vTT"] = {{ExpansionUtils:Trans("LID_GREATVAULT"), "|T136033:16:16:0:0|t ExpansionUtils"}, {ExpansionUtils:Trans("LID_LEFTCLICK"), ExpansionUtils:Trans("LID_TOGGLEGREATVAULT")}, {ExpansionUtils:Trans("LID_RIGHTCLICK"), ExpansionUtils:Trans("LID_TOGGLECHARACTEROVERVIEW")}},
+				["vTT"] = {{ExpansionUtils:Trans("LID_GREATVAULT"), "|T136033:16:16:0:0|t ExpansionUtils"}, {ExpansionUtils:Trans("LID_LEFTCLICK"), ExpansionUtils:Trans("LID_TOGGLECHARACTEROVERVIEW")}, {ExpansionUtils:Trans("LID_RIGHTCLICK"), ExpansionUtils:Trans("LID_TOGGLEGREATVAULT")}},
 				["vTTUpdate"] = function(sel, tt)
 					if C_WeeklyRewards.HasAvailableRewards() or C_WeeklyRewards.HasGeneratedRewards() then
 						tt:AddDoubleLine(" ", " ")
@@ -216,7 +216,8 @@ ExpansionUtils:OnEvent(fEV, function()
 					end
 					return false
 				end,
-				["funcL"] = function()
+				["funcL"] = function() ExpansionUtils:ToggleCharacterOverview() end,
+				["funcR"] = function()
 					if not InCombatLockdown() then
 						if WeeklyRewardsFrame == nil then
 							WeeklyRewards_ShowUI()
@@ -227,7 +228,6 @@ ExpansionUtils:OnEvent(fEV, function()
 						end
 					end
 				end,
-				["funcR"] = function() ExpansionUtils:ToggleCharacterOverview() end,
 				["addoncomp"] = false,
 				["sw"] = 64,
 				["sh"] = 64,

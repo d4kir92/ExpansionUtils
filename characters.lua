@@ -15,7 +15,6 @@ local accountPlayed = nil
 local fontSlider = nil
 local settingFontSize = false
 local raidHistory = nil
-local raidHistoryDebug = nil
 local raidHistoryRetry = 0
 local columnTree = nil
 local childSkillLines = {}
@@ -182,6 +181,12 @@ local function SplitSeconds(seconds)
 end
 
 local function FormatPlayedShort(seconds)
+	if SecondsToTime then
+		local text = SecondsToTime(math.max(0, seconds), true, false, 2)
+		if text and text ~= "" then return text end
+		if MINUTES_ABBR then return string.format(MINUTES_ABBR, 0) end
+	end
+
 	local days, hours, minutes = SplitSeconds(seconds)
 	local dayFormat = DAY_ONELETTER_ABBR or "%d d"
 	local hourFormat = HOUR_ONELETTER_ABBR or "%d h"
@@ -394,20 +399,31 @@ local function UpdateRaid(char)
 	return true
 end
 
+local DIFFICULTY_STRINGS = {
+	[17] = {"PLAYER_DIFFICULTY3", "RAID_FINDER"},
+	[14] = {"PLAYER_DIFFICULTY1"},
+	[15] = {"PLAYER_DIFFICULTY2"},
+	[16] = {"PLAYER_DIFFICULTY6"},
+}
+
 local function NormalizeName(name)
 	return string.lower(string.gsub(name, "[%s%p]", ""))
 end
 
-local function GetStatisticBossKey(statName)
+local function SplitStatisticName(statName)
 	local cut = string.find(statName, "(", 1, true)
+	local width = 1
 	local wide = string.find(statName, "\239\188\136", 1, true)
-	if wide and (cut == nil or wide < cut) then cut = wide end
-	if cut == nil or cut <= 1 then return nil end
-	return NormalizeName(string.sub(statName, 1, cut - 1))
+	if wide and (cut == nil or wide < cut) then
+		cut = wide
+		width = 3
+	end
+
+	if cut == nil or cut <= 1 then return nil, nil end
+	return NormalizeName(string.sub(statName, 1, cut - 1)), string.sub(statName, cut + width)
 end
 
-local function FindStatisticBoss(statName, bossKeys)
-	local key = GetStatisticBossKey(statName)
+local function FindStatisticBoss(key, bossKeys)
 	if key == nil or key == "" then return nil end
 	if bossKeys[key] then return bossKeys[key], true end
 	local best = nil
@@ -423,131 +439,130 @@ local function FindStatisticBoss(statName, bossKeys)
 	return best, false
 end
 
-local function GetRaidHistory(collect)
-	if raidHistory then return raidHistory end
-	if not collect and GetTime() < raidHistoryRetry then return nil end
-	raidHistoryRetry = GetTime() + 60
-	local debug = {
-		["raids"] = {},
-		["candidates"] = {},
-		["statistics"] = 0
-	}
+local function GetDifficultyNames()
+	local names = {}
+	for _, difficulty in ipairs(RAID_DIFFICULTIES) do
+		local difficultyNames = {}
+		if GetDifficultyInfo then
+			local name = GetDifficultyInfo(difficulty.id)
+			if type(name) == "string" and name ~= "" then tinsert(difficultyNames, name) end
+		end
 
-	raidHistoryDebug = debug
+		for _, global in ipairs(DIFFICULTY_STRINGS[difficulty.id]) do
+			if type(_G[global]) == "string" and _G[global] ~= "" then tinsert(difficultyNames, _G[global]) end
+		end
+
+		names[difficulty.id] = difficultyNames
+	end
+
+	return names
+end
+
+local function GetStatisticDifficulty(detail, difficultyNames)
+	if detail == nil then return nil end
+	local lowerDetail = string.lower(detail)
+	local best = nil
+	local bestLength = 0
+	for difficultyID, names in pairs(difficultyNames) do
+		for _, name in ipairs(names) do
+			if #name > bestLength and (string.find(detail, name, 1, true) or string.find(lowerDetail, string.lower(name), 1, true)) then
+				best = difficultyID
+				bestLength = #name
+			end
+		end
+	end
+
+	return best
+end
+
+local function GetRaidHistory()
+	if raidHistory then return raidHistory end
+	if GetTime() < raidHistoryRetry then return nil end
+	raidHistoryRetry = GetTime() + 60
 	if EncounterJournal and EncounterJournal:IsShown() then
-		debug.error = "EncounterJournal open"
 		raidHistoryRetry = 0
 		return nil
 	end
 
-	if EJ_GetNumTiers == nil or EJ_SelectTier == nil or EJ_GetCurrentTier == nil or EJ_GetInstanceByIndex == nil or EJ_GetInstanceInfo == nil or EJ_GetEncounterInfoByIndex == nil or GetServerExpansionLevel == nil then
-		debug.error = "EJ API missing"
-		return nil
-	end
-
-	if GetStatisticsCategoryList == nil or GetCategoryNumAchievements == nil or GetAchievementInfo == nil or GetStatistic == nil then
-		debug.error = "statistics API missing"
-		return nil
-	end
-
-	debug.tier = GetServerExpansionLevel() + 1
-	debug.numTiers = EJ_GetNumTiers()
-	if debug.tier > debug.numTiers then
-		debug.error = "tier missing"
-		return nil
-	end
-
-	local bossKeys = {}
+	if EJ_GetNumTiers == nil or EJ_SelectTier == nil or EJ_GetCurrentTier == nil or EJ_GetInstanceByIndex == nil or EJ_GetInstanceInfo == nil or EJ_SelectInstance == nil or EJ_GetEncounterInfoByIndex == nil or GetServerExpansionLevel == nil then return nil end
+	if GetStatisticsCategoryList == nil or GetCategoryNumAchievements == nil or GetAchievementInfo == nil or GetStatistic == nil then return nil end
+	local tier = GetServerExpansionLevel() + 1
+	if tier > EJ_GetNumTiers() then return nil end
+	local raids = {}
 	local previousTier = EJ_GetCurrentTier()
-	EJ_SelectTier(debug.tier)
+	EJ_SelectTier(tier)
 	local index = 1
 	local instanceID = EJ_GetInstanceByIndex(index, true)
 	while instanceID do
 		if select(9, EJ_GetInstanceInfo(instanceID)) then
-			local raid = {
-				["instanceID"] = instanceID,
-				["name"] = EJ_GetInstanceInfo(instanceID),
-				["bosses"] = {}
-			}
-
-			local bossIndex = 1
-			local bossName = EJ_GetEncounterInfoByIndex(bossIndex, instanceID)
-			while bossName do
-				local boss = {
-					["name"] = bossName,
-					["stats"] = {},
-					["fuzzy"] = {}
+			tinsert(
+				raids,
+				{
+					["instanceID"] = instanceID,
+					["bosses"] = {}
 				}
-
-				tinsert(raid.bosses, boss)
-				bossKeys[NormalizeName(bossName)] = boss
-				bossIndex = bossIndex + 1
-				bossName = EJ_GetEncounterInfoByIndex(bossIndex, instanceID)
-			end
-
-			tinsert(debug.raids, raid)
+			)
 		end
 
 		index = index + 1
 		instanceID = EJ_GetInstanceByIndex(index, true)
 	end
 
-	if previousTier and previousTier ~= debug.tier then EJ_SelectTier(previousTier) end
+	local bossKeys = {}
+	for _, raid in ipairs(raids) do
+		EJ_SelectInstance(raid.instanceID)
+		local bossIndex = 1
+		local bossName, _, bossID = EJ_GetEncounterInfoByIndex(bossIndex)
+		while bossName and bossID and bossID > 0 do
+			local boss = {
+				["stats"] = {},
+				["fuzzy"] = {},
+				["byDifficulty"] = {}
+			}
+
+			tinsert(raid.bosses, boss)
+			bossKeys[NormalizeName(bossName)] = boss
+			bossIndex = bossIndex + 1
+			bossName, _, bossID = EJ_GetEncounterInfoByIndex(bossIndex)
+		end
+	end
+
+	if previousTier and previousTier ~= tier then EJ_SelectTier(previousTier) end
+	if EncounterJournal and EncounterJournal.instanceID then EJ_SelectInstance(EncounterJournal.instanceID) end
+	local difficultyNames = GetDifficultyNames()
 	for _, categoryID in ipairs(GetStatisticsCategoryList() or {}) do
 		for statIndex = 1, GetCategoryNumAchievements(categoryID) or 0 do
 			local _, skip, statID = GetStatistic(categoryID, statIndex)
 			local statName = nil
 			if not skip and statID then statName = select(2, GetAchievementInfo(statID)) end
 			if statName then
-				debug.statistics = debug.statistics + 1
-				local boss, exact = FindStatisticBoss(statName, bossKeys)
-				if boss and exact then
-					tinsert(boss.stats, statID)
-				elseif boss then
-					tinsert(boss.fuzzy, statID)
-				end
-				if collect and string.find(statName, "(", 1, true) then
-					tinsert(
-						debug.candidates,
-						{
-							["id"] = statID,
-							["name"] = statName
-						}
-					)
+				local key, detail = SplitStatisticName(statName)
+				local boss, exact = FindStatisticBoss(key, bossKeys)
+				local difficultyID = nil
+				if boss then difficultyID = GetStatisticDifficulty(detail, difficultyNames) end
+				if difficultyID then
+					local target = boss.fuzzy
+					if exact then target = boss.stats end
+					if (target[difficultyID] or 0) < statID then target[difficultyID] = statID end
 				end
 			end
 		end
 	end
 
 	local history = {}
-	for _, raid in ipairs(debug.raids) do
+	for _, raid in ipairs(raids) do
 		local found = false
 		for _, boss in ipairs(raid.bosses) do
-			if #boss.stats < #RAID_DIFFICULTIES then
-				for _, statID in ipairs(boss.fuzzy) do
-					tinsert(boss.stats, statID)
-				end
-			end
-
-			table.sort(boss.stats, function(a, b) return a > b end)
-			if #boss.stats >= #RAID_DIFFICULTIES then
-				boss.byDifficulty = {}
-				for difficultyIndex, difficulty in ipairs(RAID_DIFFICULTIES) do
-					boss.byDifficulty[difficulty.id] = boss.stats[#RAID_DIFFICULTIES + 1 - difficultyIndex]
-				end
-
-				found = true
+			for _, difficulty in ipairs(RAID_DIFFICULTIES) do
+				boss.byDifficulty[difficulty.id] = boss.stats[difficulty.id] or boss.fuzzy[difficulty.id]
+				if boss.byDifficulty[difficulty.id] then found = true end
 			end
 		end
 
 		if found then tinsert(history, raid) end
 	end
 
-	if #history == 0 then
-		debug.error = "no statistics matched"
-		return nil
-	end
-
+	if #history == 0 then return nil end
 	raidHistory = history
 	return raidHistory
 end
@@ -561,9 +576,9 @@ end
 
 local function UpdateRaidHistory(char)
 	local history = GetRaidHistory()
-	if history == nil or #history == 0 then return end
+	if history == nil then return end
 	local result = {
-		["total"] = 0,
+		["totals"] = NewKills(),
 		["kills"] = NewKills(),
 		["raids"] = {}
 	}
@@ -571,56 +586,32 @@ local function UpdateRaidHistory(char)
 	for _, raid in ipairs(history) do
 		local entry = {
 			["instanceID"] = raid.instanceID,
-			["total"] = #raid.bosses,
+			["totals"] = NewKills(),
 			["kills"] = NewKills()
 		}
 
 		for _, boss in ipairs(raid.bosses) do
 			local best = 0
-			for difficultyID, statID in pairs(boss.byDifficulty or {}) do
+			for difficultyID, statID in pairs(boss.byDifficulty) do
 				if RAID_RANK[difficultyID] > best and GetStatisticCount(statID) > 0 then best = RAID_RANK[difficultyID] end
 			end
 
-			AddKills(entry.kills, best)
-			AddKills(result.kills, best)
+			for _, difficulty in ipairs(RAID_DIFFICULTIES) do
+				if boss.byDifficulty[difficulty.id] then
+					entry.totals[difficulty.id] = entry.totals[difficulty.id] + 1
+					result.totals[difficulty.id] = result.totals[difficulty.id] + 1
+					if best >= RAID_RANK[difficulty.id] then
+						entry.kills[difficulty.id] = entry.kills[difficulty.id] + 1
+						result.kills[difficulty.id] = result.kills[difficulty.id] + 1
+					end
+				end
+			end
 		end
 
-		result.total = result.total + entry.total
 		tinsert(result.raids, entry)
 	end
 
 	char["raidHistory"] = result
-end
-
-function ExpansionUtils:PrintCharacterOverviewRaidDebug()
-	raidHistory = nil
-	local history = GetRaidHistory(true)
-	local debug = raidHistoryDebug or {}
-	local raids = debug.raids or {}
-	ExpansionUtils:MSG("Raid: tier " .. tostring(debug.tier) .. "/" .. tostring(debug.numTiers) .. ", raids " .. #raids .. ", statistics " .. tostring(debug.statistics) .. ", " .. tostring(debug.error or "ok"))
-	for _, raid in ipairs(raids) do
-		ExpansionUtils:MSG(tostring(raid.name) .. " (" .. raid.instanceID .. ")")
-		for _, boss in ipairs(raid.bosses) do
-			local kills = {}
-			for _, difficulty in ipairs(RAID_DIFFICULTIES) do
-				local statID = boss.byDifficulty and boss.byDifficulty[difficulty.id]
-				if statID then tinsert(kills, difficulty.short .. " " .. statID .. "=" .. GetStatisticCount(statID)) end
-			end
-
-			ExpansionUtils:MSG("- " .. boss.name .. ": " .. #boss.stats .. " (" .. #boss.fuzzy .. ") | " .. table.concat(kills, ", "))
-		end
-	end
-
-	if history then
-		ExpansionUtils:UpdateCharacterOverviewData()
-		return
-	end
-
-	local candidates = debug.candidates or {}
-	table.sort(candidates, function(a, b) return a.id > b.id end)
-	for index = 1, math.min(12, #candidates) do
-		ExpansionUtils:MSG("? " .. candidates[index].id .. " " .. candidates[index].name)
-	end
 end
 
 local function GetChildSkillLine(skillLine, lineName)
@@ -768,8 +759,13 @@ end
 
 local function GetRaidHistoryKills(char)
 	local history = char["raidHistory"]
-	if history == nil or history.total == nil or history.total == 0 then return nil end
-	return history.total, history.kills or {}
+	if history == nil or history.totals == nil then return nil end
+	return history.totals, history.kills or {}
+end
+
+local function PickTotal(total, difficultyID)
+	if type(total) == "table" then return total[difficultyID] or 0 end
+	return total
 end
 
 function ExpansionUtils:UpdateCharacterOverviewData()
@@ -956,12 +952,15 @@ end
 
 local function RaidHistoryTooltip(tooltip, difficulty, char)
 	local history = char["raidHistory"]
-	if history == nil then return end
+	if history == nil or history.totals == nil then return end
 	tooltip:AddLine(Trans("LID_RAIDPROGRESSTOTAL"))
 	tooltip:AddLine(Color(difficulty.color, GetDifficultyName(difficulty)))
 	for _, raid in ipairs(history.raids or {}) do
-		local name = EJ_GetInstanceInfo and EJ_GetInstanceInfo(raid.instanceID) or tostring(raid.instanceID)
-		tooltip:AddDoubleLine(name, (raid.kills[difficulty.id] or 0) .. "/" .. raid.total, 1, 1, 1, 1, 1, 1)
+		local total = PickTotal(raid.totals, difficulty.id)
+		if total > 0 then
+			local name = EJ_GetInstanceInfo and EJ_GetInstanceInfo(raid.instanceID) or tostring(raid.instanceID)
+			tooltip:AddDoubleLine(name, (raid.kills[difficulty.id] or 0) .. "/" .. total, 1, 1, 1, 1, 1, 1)
+		end
 	end
 end
 
@@ -984,6 +983,7 @@ local function RaidColumn(prefix, difficulty, getKills, tooltipFunc)
 		["text"] = function(char)
 			local total, kills = getKills(char)
 			if total == nil then return MISSING end
+			total = PickTotal(total, difficulty.id)
 			local count = kills[difficulty.id] or 0
 			if count > 0 then return Color(difficulty.color, count .. "/" .. total) end
 			return Color(GREY, "0/" .. total)
@@ -1049,7 +1049,7 @@ local function PlayedColumn(key, label, headerTooltip)
 		["key"] = key,
 		["label"] = label,
 		["headerTooltip"] = headerTooltip,
-		["width"] = 70,
+		["width"] = 96,
 		["align"] = "RIGHT",
 		["descending"] = true,
 		["text"] = function(char)
@@ -1622,6 +1622,38 @@ local function CreateFontSizeSlider(footer, anchor)
 	return slider
 end
 
+local function CreateSettingsButton(footer)
+	local button = CreateFrame("Button", "ExpansionUtilsCharacterOverviewSettings", footer)
+	button:SetSize(28, 28)
+	if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("GM-icon-settings") then
+		button:SetNormalAtlas("GM-icon-settings")
+		button:SetPushedAtlas("GM-icon-settings-pressed")
+		button:SetHighlightAtlas("GM-icon-settings-hover", "BLEND")
+	else
+		button:SetNormalTexture("Interface\\Buttons\\UI-OptionsButton")
+		button:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+	end
+
+	button:SetScript("OnClick", function() ExpansionUtils:OpenSettings() end)
+	button:SetScript(
+		"OnEnter",
+		function(sel)
+			GameTooltip:SetOwner(sel, "ANCHOR_TOP")
+			GameTooltip:SetText(Trans("LID_OPENSETTINGS"), 1, 1, 1)
+			GameTooltip:Show()
+		end
+	)
+
+	button:SetScript(
+		"OnLeave",
+		function(sel)
+			if GameTooltip:GetOwner() == sel then GameTooltip:Hide() end
+		end
+	)
+
+	return button
+end
+
 local function CreateFooterInfo(footer, onEnter)
 	local frame = CreateFrame("Frame", nil, footer)
 	frame:SetHeight(24)
@@ -1681,7 +1713,7 @@ local function CreateWindow()
 		end,
 	})
 
-	local footer = window:AddFooter({["height"] = 24})
+	local footer = window:AddFooter({["height"] = 30})
 	onlyMaxLevel = ExpansionUtils:CreateCheckButton("ExpansionUtilsCharacterOverviewOnlyMaxLevel", footer)
 	onlyMaxLevel:SetSize(24, 24)
 	onlyMaxLevel:SetHitRectInsets(0, 0, 0, 0)
@@ -1701,7 +1733,9 @@ local function CreateWindow()
 		end
 	)
 
-	accountGold:SetPoint("RIGHT", footer, "RIGHT", -8, 0)
+	local settingsButton = CreateSettingsButton(footer)
+	settingsButton:SetPoint("RIGHT", footer, "RIGHT", -8, 0)
+	accountGold:SetPoint("RIGHT", settingsButton, "LEFT", -12, 0)
 	accountPlayed = CreateFooterInfo(
 		footer,
 		function(tooltip)

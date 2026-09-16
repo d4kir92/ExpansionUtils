@@ -9,6 +9,12 @@ function ExpansionUtils:ToggleSettings()
 	settings:Toggle()
 end
 
+function ExpansionUtils:OpenSettings()
+	if settings == nil then return end
+	settings:Show()
+	settings:Raise()
+end
+
 local function GetCollapsed(key)
 	if key == nil then return nil end
 	if type(EVTAB) ~= "table" then return nil end
@@ -51,20 +57,11 @@ local function AddMinimapCheckbox(label, db, key, name)
 	})
 end
 
-local function HandleSlash(msg)
-	if strlower(strtrim(msg or "")) == "raid" then
-		ExpansionUtils:PrintCharacterOverviewRaidDebug()
-		return
-	end
-
-	ExpansionUtils:ToggleSettings()
-end
-
 function ExpansionUtils:InitSettings()
 	EVTAB = EVTAB or {}
 	if EVTAB["MMBTN"] == nil then ExpansionUtils:SV(EVTAB, "MMBTN", true) end
-	ExpansionUtils:AddSlash("exut", HandleSlash)
-	ExpansionUtils:AddSlash("expansionutils", HandleSlash)
+	ExpansionUtils:AddSlash("exut", ExpansionUtils.ToggleSettings)
+	ExpansionUtils:AddSlash("expansionutils", ExpansionUtils.ToggleSettings)
 	local title = "|T" .. ICON .. ":16:16:0:0|t ExpansionUtils"
 	local version = "v" .. (ExpansionUtils:GetVersion() or "")
 	settings = ExpansionUtils:CreateUIWindow({
