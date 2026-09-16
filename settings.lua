@@ -51,11 +51,20 @@ local function AddMinimapCheckbox(label, db, key, name)
 	})
 end
 
+local function HandleSlash(msg)
+	if strlower(strtrim(msg or "")) == "raid" then
+		ExpansionUtils:PrintCharacterOverviewRaidDebug()
+		return
+	end
+
+	ExpansionUtils:ToggleSettings()
+end
+
 function ExpansionUtils:InitSettings()
 	EVTAB = EVTAB or {}
 	if EVTAB["MMBTN"] == nil then ExpansionUtils:SV(EVTAB, "MMBTN", true) end
-	ExpansionUtils:AddSlash("exut", ExpansionUtils.ToggleSettings)
-	ExpansionUtils:AddSlash("expansionutils", ExpansionUtils.ToggleSettings)
+	ExpansionUtils:AddSlash("exut", HandleSlash)
+	ExpansionUtils:AddSlash("expansionutils", HandleSlash)
 	local title = "|T" .. ICON .. ":16:16:0:0|t ExpansionUtils"
 	local version = "v" .. (ExpansionUtils:GetVersion() or "")
 	settings = ExpansionUtils:CreateUIWindow({
@@ -97,6 +106,20 @@ function ExpansionUtils:InitSettings()
 		["max"] = fontMax,
 		["step"] = 1,
 		["func"] = function(value) ExpansionUtils:SetCharacterOverviewFontSize(value) end
+	})
+
+	settings:AddCategory({
+		["label"] = "LID_COLUMNS",
+		["key"] = "COLUMNS",
+		["search"] = "COLUMNS",
+		["sub"] = true
+	})
+
+	settings:AddOrderList({
+		["label"] = "LID_COLUMNS",
+		["search"] = "COLUMNS",
+		["items"] = ExpansionUtils:GetCharacterOverviewColumnTree(),
+		["func"] = function() ExpansionUtils:UpdateCharacterOverviewColumns() end
 	})
 
 	settings:ResumeLayout()

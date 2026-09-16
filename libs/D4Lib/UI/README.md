@@ -18,6 +18,7 @@ so any string starting with `LID_` is translated and any other string is used as
 | `D4UIEditbox.lua` | `win:AddEditbox` |
 | `D4UIColorPicker.lua` | `win:AddColorPicker` |
 | `D4UIList.lua` | `win:AddList` |
+| `D4UIOrderList.lua` | `win:AddOrderList` |
 
 ## Usage
 
@@ -252,7 +253,9 @@ Each row is a plain table and is passed as-is to the column callbacks. Column fi
 - `descending = true`: the first click sorts descending (numbers where more is better).
 - `sortable = false`: clicking the header does nothing.
 - `group`: consecutive columns with the same `group` get one shared label in a second
-  header line above them.
+  header line above them. A table like `{"LID_RAID", "LID_WEEK"}` nests groups: the
+  header gets one line per level (the longest path wins), a label spans the adjacent
+  columns whose paths match up to that level, and shorter paths stay top aligned.
 - `headerTooltip`: a string (translated) or `function(tooltip)` for the header.
 - `tooltip(tooltip, row)`: fills `GameTooltip` while the mouse is over that cell. The
   row tracks which column is under the cursor, so there is one frame per row, not per
@@ -267,6 +270,36 @@ Methods on the returned list: `SetRows(rows)`, `GetRows()` (in display order),
 `Refresh()` (re-reads every cell, e.g. after the row tables changed in place),
 `SetFontSize(size)` / `GetFontSize()` and `GetColumnsWidth()` (sum of all column
 widths at the current font size -- add 64 for the window width that fits them).
+
+## Order list
+
+`win:AddOrderList(tab)` shows a tree with a checkbox and up/down arrows per entry, e.g.
+for column order and visibility.
+
+```lua
+win:AddOrderList({
+    label = "LID_COLUMNS",
+    search = "COLUMNS",
+    items = {
+        {key = "level", label = "LID_LEVEL"},
+        {key = "raid", label = "LID_RAID", children = {
+            {key = "lfr", label = "LFR", movable = false},
+            {key = "normal", label = "Normal", movable = false},
+        }},
+    },
+    func = function(items, node) SaveOrder(items) end,
+})
+```
+
+- Entry fields: `key`, `label` (translated), `checked` (default true), `children`,
+  `movable = false` (no arrows), `checkable = false` (no checkbox). Extra fields are
+  kept untouched.
+- The arrows swap an entry with its neighbour inside the same parent; clicking a
+  checkbox sets `checked`. Both change the `items` tables **in place** and then call
+  `func(items, node)`, so the caller reads the new order straight from the tree.
+- Children of an unchecked entry are shown disabled and keep their own state.
+- All entry labels are added to the search keywords.
+- Methods: `SetItems(items)`, `GetItems()`, `Refresh()`.
 
 ## Window
 

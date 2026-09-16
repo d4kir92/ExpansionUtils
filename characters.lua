@@ -15,6 +15,9 @@ local accountPlayed = nil
 local fontSlider = nil
 local settingFontSize = false
 local raidHistory = nil
+local raidHistoryDebug = nil
+local raidHistoryRetry = 0
+local columnTree = nil
 local childSkillLines = {}
 local pending = false
 local playedTotal = nil
@@ -391,41 +394,79 @@ local function UpdateRaid(char)
 	return true
 end
 
-local function IsBossStatistic(statName, bossName)
-	if string.sub(statName, 1, #bossName) ~= bossName then return false end
-	local rest = string.sub(statName, #bossName + 1)
-	return string.find(rest, "^%s*%(") ~= nil or string.find(rest, "^%s*\239\188\136") ~= nil
+local function NormalizeName(name)
+	return string.lower(string.gsub(name, "[%s%p]", ""))
 end
 
-local function GetRaidHistory()
+local function GetStatisticBossKey(statName)
+	local cut = string.find(statName, "(", 1, true)
+	local wide = string.find(statName, "\239\188\136", 1, true)
+	if wide and (cut == nil or wide < cut) then cut = wide end
+	if cut == nil or cut <= 1 then return nil end
+	return NormalizeName(string.sub(statName, 1, cut - 1))
+end
+
+local function FindStatisticBoss(statName, bossKeys)
+	local key = GetStatisticBossKey(statName)
+	if key == nil or key == "" then return nil end
+	if bossKeys[key] then return bossKeys[key], true end
+	local best = nil
+	local bestLength = 0
+	for bossKey, boss in pairs(bossKeys) do
+		local length = math.min(#bossKey, #key)
+		if length >= 4 and length > bestLength and string.sub(key, 1, length) == string.sub(bossKey, 1, length) then
+			best = boss
+			bestLength = length
+		end
+	end
+
+	return best, false
+end
+
+local function GetRaidHistory(collect)
 	if raidHistory then return raidHistory end
-	if EncounterJournal and EncounterJournal:IsShown() then return nil end
+	if not collect and GetTime() < raidHistoryRetry then return nil end
+	raidHistoryRetry = GetTime() + 60
+	local debug = {
+		["raids"] = {},
+		["candidates"] = {},
+		["statistics"] = 0
+	}
+
+	raidHistoryDebug = debug
+	if EncounterJournal and EncounterJournal:IsShown() then
+		debug.error = "EncounterJournal open"
+		raidHistoryRetry = 0
+		return nil
+	end
+
 	if EJ_GetNumTiers == nil or EJ_SelectTier == nil or EJ_GetCurrentTier == nil or EJ_GetInstanceByIndex == nil or EJ_GetInstanceInfo == nil or EJ_GetEncounterInfoByIndex == nil or GetServerExpansionLevel == nil then
-		raidHistory = {}
-		return raidHistory
+		debug.error = "EJ API missing"
+		return nil
 	end
 
 	if GetStatisticsCategoryList == nil or GetCategoryNumAchievements == nil or GetAchievementInfo == nil or GetStatistic == nil then
-		raidHistory = {}
-		return raidHistory
+		debug.error = "statistics API missing"
+		return nil
 	end
 
-	local tier = GetServerExpansionLevel() + 1
-	if tier > EJ_GetNumTiers() then
-		raidHistory = {}
-		return raidHistory
+	debug.tier = GetServerExpansionLevel() + 1
+	debug.numTiers = EJ_GetNumTiers()
+	if debug.tier > debug.numTiers then
+		debug.error = "tier missing"
+		return nil
 	end
 
-	local raids = {}
-	local bosses = {}
+	local bossKeys = {}
 	local previousTier = EJ_GetCurrentTier()
-	EJ_SelectTier(tier)
+	EJ_SelectTier(debug.tier)
 	local index = 1
 	local instanceID = EJ_GetInstanceByIndex(index, true)
 	while instanceID do
 		if select(9, EJ_GetInstanceInfo(instanceID)) then
 			local raid = {
 				["instanceID"] = instanceID,
+				["name"] = EJ_GetInstanceInfo(instanceID),
 				["bosses"] = {}
 			}
 
@@ -434,57 +475,80 @@ local function GetRaidHistory()
 			while bossName do
 				local boss = {
 					["name"] = bossName,
-					["stats"] = {}
+					["stats"] = {},
+					["fuzzy"] = {}
 				}
 
 				tinsert(raid.bosses, boss)
-				tinsert(bosses, boss)
+				bossKeys[NormalizeName(bossName)] = boss
 				bossIndex = bossIndex + 1
 				bossName = EJ_GetEncounterInfoByIndex(bossIndex, instanceID)
 			end
 
-			tinsert(raids, raid)
+			tinsert(debug.raids, raid)
 		end
 
 		index = index + 1
 		instanceID = EJ_GetInstanceByIndex(index, true)
 	end
 
-	if previousTier and previousTier ~= tier then EJ_SelectTier(previousTier) end
+	if previousTier and previousTier ~= debug.tier then EJ_SelectTier(previousTier) end
 	for _, categoryID in ipairs(GetStatisticsCategoryList() or {}) do
 		for statIndex = 1, GetCategoryNumAchievements(categoryID) or 0 do
 			local _, skip, statID = GetStatistic(categoryID, statIndex)
 			local statName = nil
 			if not skip and statID then statName = select(2, GetAchievementInfo(statID)) end
 			if statName then
-				for _, boss in ipairs(bosses) do
-					if IsBossStatistic(statName, boss.name) then
-						tinsert(boss.stats, statID)
-						break
-					end
+				debug.statistics = debug.statistics + 1
+				local boss, exact = FindStatisticBoss(statName, bossKeys)
+				if boss and exact then
+					tinsert(boss.stats, statID)
+				elseif boss then
+					tinsert(boss.fuzzy, statID)
+				end
+				if collect and string.find(statName, "(", 1, true) then
+					tinsert(
+						debug.candidates,
+						{
+							["id"] = statID,
+							["name"] = statName
+						}
+					)
 				end
 			end
 		end
 	end
 
-	raidHistory = {}
-	for _, raid in ipairs(raids) do
+	local history = {}
+	for _, raid in ipairs(debug.raids) do
 		local found = false
 		for _, boss in ipairs(raid.bosses) do
-			table.sort(boss.stats)
-			if #boss.stats == #RAID_DIFFICULTIES then
+			if #boss.stats < #RAID_DIFFICULTIES then
+				for _, statID in ipairs(boss.fuzzy) do
+					tinsert(boss.stats, statID)
+				end
+			end
+
+			table.sort(boss.stats, function(a, b) return a > b end)
+			if #boss.stats >= #RAID_DIFFICULTIES then
 				boss.byDifficulty = {}
 				for difficultyIndex, difficulty in ipairs(RAID_DIFFICULTIES) do
-					boss.byDifficulty[difficulty.id] = boss.stats[difficultyIndex]
+					boss.byDifficulty[difficulty.id] = boss.stats[#RAID_DIFFICULTIES + 1 - difficultyIndex]
 				end
 
 				found = true
 			end
 		end
 
-		if found then tinsert(raidHistory, raid) end
+		if found then tinsert(history, raid) end
 	end
 
+	if #history == 0 then
+		debug.error = "no statistics matched"
+		return nil
+	end
+
+	raidHistory = history
 	return raidHistory
 end
 
@@ -526,6 +590,37 @@ local function UpdateRaidHistory(char)
 	end
 
 	char["raidHistory"] = result
+end
+
+function ExpansionUtils:PrintCharacterOverviewRaidDebug()
+	raidHistory = nil
+	local history = GetRaidHistory(true)
+	local debug = raidHistoryDebug or {}
+	local raids = debug.raids or {}
+	ExpansionUtils:MSG("Raid: tier " .. tostring(debug.tier) .. "/" .. tostring(debug.numTiers) .. ", raids " .. #raids .. ", statistics " .. tostring(debug.statistics) .. ", " .. tostring(debug.error or "ok"))
+	for _, raid in ipairs(raids) do
+		ExpansionUtils:MSG(tostring(raid.name) .. " (" .. raid.instanceID .. ")")
+		for _, boss in ipairs(raid.bosses) do
+			local kills = {}
+			for _, difficulty in ipairs(RAID_DIFFICULTIES) do
+				local statID = boss.byDifficulty and boss.byDifficulty[difficulty.id]
+				if statID then tinsert(kills, difficulty.short .. " " .. statID .. "=" .. GetStatisticCount(statID)) end
+			end
+
+			ExpansionUtils:MSG("- " .. boss.name .. ": " .. #boss.stats .. " (" .. #boss.fuzzy .. ") | " .. table.concat(kills, ", "))
+		end
+	end
+
+	if history then
+		ExpansionUtils:UpdateCharacterOverviewData()
+		return
+	end
+
+	local candidates = debug.candidates or {}
+	table.sort(candidates, function(a, b) return a.id > b.id end)
+	for index = 1, math.min(12, #candidates) do
+		ExpansionUtils:MSG("? " .. candidates[index].id .. " " .. candidates[index].name)
+	end
 end
 
 local function GetChildSkillLine(skillLine, lineName)
@@ -878,312 +973,539 @@ local function ProfessionTooltip(tooltip, profession)
 	if profession.points then tooltip:AddDoubleLine(Trans("LID_KNOWLEDGEPOINTS"), tostring(profession.points), 1, 1, 1, 1, 1, 1) end
 end
 
-local function AddRaidColumns(columns, prefix, group, getKills, tooltipFunc)
+local function RaidColumn(prefix, difficulty, getKills, tooltipFunc)
+	return {
+		["key"] = prefix .. difficulty.id,
+		["label"] = difficulty.short,
+		["headerTooltip"] = GetDifficultyName(difficulty),
+		["width"] = 40,
+		["align"] = "CENTER",
+		["descending"] = true,
+		["text"] = function(char)
+			local total, kills = getKills(char)
+			if total == nil then return MISSING end
+			local count = kills[difficulty.id] or 0
+			if count > 0 then return Color(difficulty.color, count .. "/" .. total) end
+			return Color(GREY, "0/" .. total)
+		end,
+		["value"] = function(char)
+			local total, kills = getKills(char)
+			if total == nil then return nil end
+			return kills[difficulty.id] or 0
+		end,
+		["tooltip"] = function(tooltip, char) tooltipFunc(tooltip, difficulty, char) end
+	}
+end
+
+local function ProfessionColumn(slot)
+	local key = "prof" .. slot
+	return {
+		["key"] = key,
+		["label"] = "LID_PROFESSION",
+		["width"] = 80,
+		["text"] = function(char)
+			local profession = char[key]
+			if profession == nil then
+				if char["professions"] then return "" end
+				return MISSING
+			end
+
+			local text = Icon(profession.icon, ScaledIcon(14))
+			if profession.rank then text = text .. " " .. profession.rank .. "/" .. (profession.maxRank or "?") end
+			return text
+		end,
+		["value"] = function(char) return char[key] and char[key].name end,
+		["tooltip"] = function(tooltip, char) ProfessionTooltip(tooltip, char[key]) end
+	}
+end
+
+local function KnowledgeColumn(slot)
+	local key = "prof" .. slot
+	return {
+		["key"] = key .. "points",
+		["label"] = "LID_KNOWLEDGE",
+		["headerTooltip"] = "LID_KNOWLEDGEPOINTS",
+		["width"] = 54,
+		["align"] = "CENTER",
+		["descending"] = true,
+		["text"] = function(char)
+			local profession = char[key]
+			if profession == nil then
+				if char["professions"] then return "" end
+				return MISSING
+			end
+
+			if profession.points == nil then return MISSING end
+			if profession.points > 0 then return Color("ff00ff00", profession.points) end
+			return Color(GREY, profession.points)
+		end,
+		["value"] = function(char) return char[key] and char[key].points end,
+		["tooltip"] = function(tooltip, char) ProfessionTooltip(tooltip, char[key]) end
+	}
+end
+
+local function PlayedColumn(key, label, headerTooltip)
+	return {
+		["key"] = key,
+		["label"] = label,
+		["headerTooltip"] = headerTooltip,
+		["width"] = 70,
+		["align"] = "RIGHT",
+		["descending"] = true,
+		["text"] = function(char)
+			if char[key] == nil then return MISSING end
+			return FormatPlayedShort(char[key])
+		end,
+		["tooltip"] = function(tooltip, char)
+			if char[key] == nil then return end
+			tooltip:AddLine(Trans(headerTooltip))
+			tooltip:AddLine(FormatPlayedLong(char[key]), 1, 1, 1)
+		end
+	}
+end
+
+local function NameColumn()
+	return {
+		["key"] = "name",
+		["label"] = "LID_NAME",
+		["width"] = 100,
+		["flex"] = true,
+		["text"] = function(char)
+			local _, _, _, colorStr = ExpansionUtils:GetClassColor(char["class"])
+			local text = Color(colorStr, char["name"])
+			if HasVaultRewardsWaiting(char) then
+				local size = ScaledIcon(14)
+				text = text .. " |A:GreatVault-32x32:" .. size .. ":" .. size .. "|a"
+			end
+			return text
+		end,
+		["value"] = function(char) return char["name"] end,
+		["tooltip"] = NameTooltip
+	}
+end
+
+local function LevelColumn()
+	return {
+		["key"] = "level",
+		["label"] = "LID_LEVELSHORT",
+		["width"] = 46,
+		["align"] = "CENTER",
+		["descending"] = true,
+		["text"] = function(char)
+			if char["level"] == nil then return MISSING end
+			return tostring(char["level"])
+		end
+	}
+end
+
+local function SpecColumn()
+	return {
+		["key"] = "spec",
+		["label"] = "LID_SPEC",
+		["width"] = 46,
+		["align"] = "CENTER",
+		["text"] = function(char)
+			if char["specIcon"] == nil then return MISSING end
+			return Icon(char["specIcon"], ScaledIcon(16))
+		end,
+		["value"] = function(char) return char["specName"] end,
+		["tooltip"] = function(tooltip, char) if char["specName"] then tooltip:AddLine(char["specName"], 1, 1, 1) end end
+	}
+end
+
+local function ItemLevelColumn()
+	return {
+		["key"] = "ilvl",
+		["label"] = "LID_ITEMLEVELSHORT",
+		["headerTooltip"] = "LID_ITEMLEVEL",
+		["width"] = 44,
+		["align"] = "CENTER",
+		["descending"] = true,
+		["text"] = function(char)
+			if char["ilvl"] == nil then return MISSING end
+			return tostring(math.floor(char["ilvl"]))
+		end,
+		["tooltip"] = function(tooltip, char) if char["ilvl"] then tooltip:AddDoubleLine(Trans("LID_ITEMLEVEL"), string.format("%.1f", char["ilvl"]), 1, 1, 1, 1, 1, 1) end end
+	}
+end
+
+local function ScoreColumn()
+	return {
+		["key"] = "score",
+		["label"] = "LID_SCORE",
+		["headerTooltip"] = "LID_MYTHICPLUSSCORE",
+		["width"] = 60,
+		["align"] = "CENTER",
+		["descending"] = true,
+		["text"] = function(char)
+			local score = nil
+			if GetRuns(char) then score = char["score"] end
+			if score == nil then return MISSING end
+			local color = nil
+			if C_ChallengeMode and C_ChallengeMode.GetDungeonScoreRarityColor then color = C_ChallengeMode.GetDungeonScoreRarityColor(score) end
+			return ColorMixinText(color, tostring(score))
+		end,
+		["value"] = function(char)
+			if GetRuns(char) then return char["score"] end
+			return nil
+		end
+	}
+end
+
+local function MapColumn(mapID)
+	local name, texture = GetMapInfo(mapID)
+	local label = nil
+	if texture == nil then label = name end
+	return {
+		["key"] = "map" .. mapID,
+		["icon"] = texture,
+		["label"] = label,
+		["headerTooltip"] = name,
+		["width"] = 32,
+		["align"] = "CENTER",
+		["descending"] = true,
+		["text"] = function(char)
+			local runs = GetRuns(char)
+			if runs == nil then return MISSING end
+			local run = runs[mapID]
+			if run == nil then return "" end
+			if not run.timed then return Color(GREY, run.level) end
+			local color = nil
+			if run.score and C_ChallengeMode and C_ChallengeMode.GetSpecificDungeonOverallScoreRarityColor then color = C_ChallengeMode.GetSpecificDungeonOverallScoreRarityColor(run.score) end
+			return ColorMixinText(color, tostring(run.level))
+		end,
+		["value"] = function(char)
+			local runs = GetRuns(char)
+			local run = runs and runs[mapID]
+			if run == nil then return nil end
+			return run.score or run.level
+		end,
+		["tooltip"] = function(tooltip, char) RunTooltip(tooltip, mapID, char) end
+	}
+end
+
+local function KeystoneColumn()
+	return {
+		["key"] = "keystone",
+		["label"] = "LID_KEYSTONE",
+		["width"] = 70,
+		["align"] = "CENTER",
+		["descending"] = true,
+		["text"] = function(char)
+			if char["keyLevel"] == nil then return "" end
+			local _, texture = GetMapInfo(char["keyMap"])
+			local level = tostring(char["keyLevel"])
+			if IsStale(char) then
+				level = Color(GREY, level)
+			elseif C_ChallengeMode and C_ChallengeMode.GetKeystoneLevelRarityColor then
+				level = ColorMixinText(C_ChallengeMode.GetKeystoneLevelRarityColor(char["keyLevel"]), level)
+			end
+			return Icon(texture, ScaledIcon(14)) .. " " .. level
+		end,
+		["value"] = function(char) return char["keyLevel"] end,
+		["tooltip"] = function(tooltip, char)
+			if char["keyLevel"] == nil then return end
+			local name = GetMapInfo(char["keyMap"])
+			tooltip:AddLine((name or "") .. " +" .. char["keyLevel"])
+			if IsStale(char) then tooltip:AddLine(Trans("LID_OUTDATED"), 0.5, 0.5, 0.5) end
+		end
+	}
+end
+
+local function VaultColumn(vaultType)
+	return {
+		["key"] = "vault" .. vaultType.key,
+		["label"] = vaultType.label,
+		["width"] = 44,
+		["align"] = "CENTER",
+		["descending"] = true,
+		["text"] = function(char)
+			local slots, progress, maxThreshold, unlocked = GetVaultState(char, vaultType.key)
+			if slots == nil then return MISSING end
+			local color = GREY
+			if unlocked >= #slots then
+				color = "ff00ff00"
+			elseif unlocked > 0 then
+				color = "ffffff00"
+			end
+			return Color(color, progress .. "/" .. maxThreshold)
+		end,
+		["value"] = function(char)
+			local slots, progress, _, unlocked = GetVaultState(char, vaultType.key)
+			if slots == nil then return nil end
+			return unlocked * 1000 + progress
+		end,
+		["tooltip"] = function(tooltip, char) VaultTooltip(tooltip, vaultType, char) end
+	}
+end
+
+local function MoneyColumn()
+	return {
+		["key"] = "money",
+		["label"] = "LID_GOLD",
+		["width"] = 90,
+		["align"] = "RIGHT",
+		["descending"] = true,
+		["text"] = function(char)
+			if char["money"] == nil then return MISSING end
+			return FormatGold(char["money"], ScaledIcon(12))
+		end,
+		["tooltip"] = function(tooltip, char)
+			if char["money"] == nil or GetMoneyString == nil then return end
+			tooltip:AddLine(GetMoneyString(char["money"], true), 1, 1, 1)
+		end
+	}
+end
+
+local function Single(factory, ...)
+	local args = {...}
+	return function() return {factory(unpack(args))} end
+end
+
+local function CreateColumnTree()
+	local raidWeek = {}
+	local raidTotal = {}
 	for _, difficulty in ipairs(RAID_DIFFICULTIES) do
 		tinsert(
-			columns,
+			raidWeek,
 			{
-				["key"] = prefix .. difficulty.id,
-				["label"] = difficulty.short,
-				["headerTooltip"] = GetDifficultyName(difficulty),
-				["group"] = group,
-				["width"] = 40,
-				["align"] = "CENTER",
-				["descending"] = true,
-				["text"] = function(char)
-					local total, kills = getKills(char)
-					if total == nil then return MISSING end
-					local count = kills[difficulty.id] or 0
-					if count > 0 then return Color(difficulty.color, count .. "/" .. total) end
-					return Color(GREY, "0/" .. total)
-				end,
-				["value"] = function(char)
-					local total, kills = getKills(char)
-					if total == nil then return nil end
-					return kills[difficulty.id] or 0
-				end,
-				["tooltip"] = function(tooltip, char) tooltipFunc(tooltip, difficulty, char) end
+				["key"] = "raidweek" .. difficulty.id,
+				["label"] = GetDifficultyName(difficulty),
+				["movable"] = false,
+				["columns"] = Single(RaidColumn, "raidweek", difficulty, GetRaidKills, RaidWeekTooltip)
+			}
+		)
+
+		tinsert(
+			raidTotal,
+			{
+				["key"] = "raidtotal" .. difficulty.id,
+				["label"] = GetDifficultyName(difficulty),
+				["movable"] = false,
+				["columns"] = Single(RaidColumn, "raidtotal", difficulty, GetRaidHistoryKills, RaidHistoryTooltip)
 			}
 		)
 	end
-end
 
-local function AddProfessionColumns(columns, slot)
-	local key = "prof" .. slot
-	local group = "LID_PROFESSION" .. slot
-	tinsert(
-		columns,
-		{
-			["key"] = key,
-			["label"] = "LID_PROFESSION",
-			["group"] = group,
-			["width"] = 80,
-			["text"] = function(char)
-				local profession = char[key]
-				if profession == nil then
-					if char["professions"] then return "" end
-					return MISSING
-				end
+	local vault = {}
+	for _, vaultType in ipairs(VAULT_TYPES) do
+		tinsert(
+			vault,
+			{
+				["key"] = "vault" .. vaultType.key,
+				["label"] = vaultType.label,
+				["columns"] = Single(VaultColumn, vaultType)
+			}
+		)
+	end
 
-				local text = Icon(profession.icon, ScaledIcon(14))
-				if profession.rank then text = text .. " " .. profession.rank .. "/" .. (profession.maxRank or "?") end
-				return text
-			end,
-			["value"] = function(char) return char[key] and char[key].name end,
-			["tooltip"] = function(tooltip, char) ProfessionTooltip(tooltip, char[key]) end
+	local professions = {}
+	for slot = 1, 2 do
+		local node = {
+			["key"] = "prof" .. slot,
+			["label"] = "LID_PROFESSION" .. slot
 		}
-	)
 
-	if not HasKnowledgePoints() then return end
-	tinsert(
-		columns,
-		{
-			["key"] = key .. "points",
-			["label"] = "LID_KNOWLEDGE",
-			["headerTooltip"] = "LID_KNOWLEDGEPOINTS",
-			["group"] = group,
-			["width"] = 54,
-			["align"] = "CENTER",
-			["descending"] = true,
-			["text"] = function(char)
-				local profession = char[key]
-				if profession == nil then
-					if char["professions"] then return "" end
-					return MISSING
-				end
+		if HasKnowledgePoints() then
+			node.children = {
+				{
+					["key"] = "prof" .. slot .. "skill",
+					["label"] = "LID_PROFESSION",
+					["columns"] = Single(ProfessionColumn, slot)
+				},
+				{
+					["key"] = "prof" .. slot .. "points",
+					["label"] = "LID_KNOWLEDGEPOINTS",
+					["columns"] = Single(KnowledgeColumn, slot)
+				},
+			}
+		else
+			node.group = "LID_PROFESSION" .. slot
+			node.columns = Single(ProfessionColumn, slot)
+		end
 
-				if profession.points == nil then return MISSING end
-				if profession.points > 0 then return Color("ff00ff00", profession.points) end
-				return Color(GREY, profession.points)
-			end,
-			["value"] = function(char) return char[key] and char[key].points end,
-			["tooltip"] = function(tooltip, char) ProfessionTooltip(tooltip, char[key]) end
-		}
-	)
-end
+		tinsert(professions, node)
+	end
 
-local function AddPlayedColumn(columns, key, label, headerTooltip)
-	tinsert(
-		columns,
-		{
-			["key"] = key,
-			["label"] = label,
-			["headerTooltip"] = headerTooltip,
-			["group"] = "LID_PLAYED",
-			["width"] = 70,
-			["align"] = "RIGHT",
-			["descending"] = true,
-			["text"] = function(char)
-				if char[key] == nil then return MISSING end
-				return FormatPlayedShort(char[key])
-			end,
-			["tooltip"] = function(tooltip, char)
-				if char[key] == nil then return end
-				tooltip:AddLine(Trans(headerTooltip))
-				tooltip:AddLine(FormatPlayedLong(char[key]), 1, 1, 1)
-			end
-		}
-	)
-end
-
-local function BuildColumns(maps)
-	local columns = {
-		{
-			["key"] = "name",
-			["label"] = "LID_NAME",
-			["width"] = 100,
-			["flex"] = true,
-			["text"] = function(char)
-				local _, _, _, colorStr = ExpansionUtils:GetClassColor(char["class"])
-				local text = Color(colorStr, char["name"])
-				if HasVaultRewardsWaiting(char) then
-					local size = ScaledIcon(14)
-					text = text .. " |A:GreatVault-32x32:" .. size .. ":" .. size .. "|a"
-				end
-				return text
-			end,
-			["value"] = function(char) return char["name"] end,
-			["tooltip"] = NameTooltip
-		},
+	return {
 		{
 			["key"] = "level",
 			["label"] = "LID_LEVELSHORT",
-			["width"] = 46,
-			["align"] = "CENTER",
-			["descending"] = true,
-			["text"] = function(char)
-				if char["level"] == nil then return MISSING end
-				return tostring(char["level"])
-			end
+			["columns"] = Single(LevelColumn)
 		},
 		{
 			["key"] = "spec",
 			["label"] = "LID_SPEC",
-			["width"] = 46,
-			["align"] = "CENTER",
-			["text"] = function(char)
-				if char["specIcon"] == nil then return MISSING end
-				return Icon(char["specIcon"], ScaledIcon(16))
-			end,
-			["value"] = function(char) return char["specName"] end,
-			["tooltip"] = function(tooltip, char) if char["specName"] then tooltip:AddLine(char["specName"], 1, 1, 1) end end
+			["columns"] = Single(SpecColumn)
 		},
 		{
 			["key"] = "ilvl",
-			["label"] = "LID_ITEMLEVELSHORT",
-			["headerTooltip"] = "LID_ITEMLEVEL",
-			["width"] = 44,
-			["align"] = "CENTER",
-			["descending"] = true,
-			["text"] = function(char)
-				if char["ilvl"] == nil then return MISSING end
-				return tostring(math.floor(char["ilvl"]))
-			end,
-			["tooltip"] = function(tooltip, char) if char["ilvl"] then tooltip:AddDoubleLine(Trans("LID_ITEMLEVEL"), string.format("%.1f", char["ilvl"]), 1, 1, 1, 1, 1, 1) end end
+			["label"] = "LID_ITEMLEVEL",
+			["columns"] = Single(ItemLevelColumn)
 		},
 		{
-			["key"] = "score",
-			["label"] = "LID_SCORE",
-			["headerTooltip"] = "LID_MYTHICPLUSSCORE",
-			["width"] = 60,
-			["align"] = "CENTER",
-			["descending"] = true,
-			["text"] = function(char)
-				local score = nil
-				if GetRuns(char) then score = char["score"] end
-				if score == nil then return MISSING end
-				local color = nil
-				if C_ChallengeMode and C_ChallengeMode.GetDungeonScoreRarityColor then color = C_ChallengeMode.GetDungeonScoreRarityColor(score) end
-				return ColorMixinText(color, tostring(score))
-			end,
-			["value"] = function(char)
-				if GetRuns(char) then return char["score"] end
-				return nil
-			end
-		},
-	}
-
-	for _, mapID in ipairs(maps) do
-		local name, texture = GetMapInfo(mapID)
-		local label = nil
-		if texture == nil then label = name end
-		tinsert(
-			columns,
-			{
-				["key"] = "map" .. mapID,
-				["icon"] = texture,
-				["label"] = label,
-				["headerTooltip"] = name,
-				["group"] = "LID_BESTRUNS",
-				["width"] = 32,
-				["align"] = "CENTER",
-				["descending"] = true,
-				["text"] = function(char)
-					local runs = GetRuns(char)
-					if runs == nil then return MISSING end
-					local run = runs[mapID]
-					if run == nil then return "" end
-					if not run.timed then return Color(GREY, run.level) end
-					local color = nil
-					if run.score and C_ChallengeMode and C_ChallengeMode.GetSpecificDungeonOverallScoreRarityColor then color = C_ChallengeMode.GetSpecificDungeonOverallScoreRarityColor(run.score) end
-					return ColorMixinText(color, tostring(run.level))
-				end,
-				["value"] = function(char)
-					local runs = GetRuns(char)
-					local run = runs and runs[mapID]
-					if run == nil then return nil end
-					return run.score or run.level
-				end,
-				["tooltip"] = function(tooltip, char) RunTooltip(tooltip, mapID, char) end
-			}
-		)
-	end
-
-	tinsert(
-		columns,
-		{
-			["key"] = "keystone",
-			["label"] = "LID_KEYSTONE",
-			["width"] = 70,
-			["align"] = "CENTER",
-			["descending"] = true,
-			["text"] = function(char)
-				if char["keyLevel"] == nil then return "" end
-				local _, texture = GetMapInfo(char["keyMap"])
-				local level = tostring(char["keyLevel"])
-				if IsStale(char) then
-					level = Color(GREY, level)
-				elseif C_ChallengeMode and C_ChallengeMode.GetKeystoneLevelRarityColor then
-					level = ColorMixinText(C_ChallengeMode.GetKeystoneLevelRarityColor(char["keyLevel"]), level)
-				end
-				return Icon(texture, ScaledIcon(14)) .. " " .. level
-			end,
-			["value"] = function(char) return char["keyLevel"] end,
-			["tooltip"] = function(tooltip, char)
-				if char["keyLevel"] == nil then return end
-				local name = GetMapInfo(char["keyMap"])
-				tooltip:AddLine((name or "") .. " +" .. char["keyLevel"])
-				if IsStale(char) then tooltip:AddLine(Trans("LID_OUTDATED"), 0.5, 0.5, 0.5) end
-			end
-		}
-	)
-
-	AddRaidColumns(columns, "raidweek", "LID_RAIDPROGRESSWEEK", GetRaidKills, RaidWeekTooltip)
-	AddRaidColumns(columns, "raidtotal", "LID_RAIDPROGRESSTOTAL", GetRaidHistoryKills, RaidHistoryTooltip)
-	for _, vaultType in ipairs(VAULT_TYPES) do
-		tinsert(
-			columns,
-			{
-				["key"] = "vault" .. vaultType.key,
-				["label"] = vaultType.label,
-				["group"] = "LID_GREATVAULT",
-				["width"] = 44,
-				["align"] = "CENTER",
-				["descending"] = true,
-				["text"] = function(char)
-					local slots, progress, maxThreshold, unlocked = GetVaultState(char, vaultType.key)
-					if slots == nil then return MISSING end
-					local color = GREY
-					if unlocked >= #slots then
-						color = "ff00ff00"
-					elseif unlocked > 0 then
-						color = "ffffff00"
+			["key"] = "mythicplus",
+			["label"] = "LID_MYTHICPLUS",
+			["children"] = {
+				{
+					["key"] = "score",
+					["label"] = "LID_SCORE",
+					["columns"] = Single(ScoreColumn)
+				},
+				{
+					["key"] = "bestruns",
+					["label"] = "LID_BESTRUNS",
+					["group"] = "LID_BESTRUNS",
+					["columns"] = function(maps)
+						local columns = {}
+						for _, mapID in ipairs(maps) do
+							tinsert(columns, MapColumn(mapID))
+						end
+						return columns
 					end
-					return Color(color, progress .. "/" .. maxThreshold)
-				end,
-				["value"] = function(char)
-					local slots, progress, _, unlocked = GetVaultState(char, vaultType.key)
-					if slots == nil then return nil end
-					return unlocked * 1000 + progress
-				end,
-				["tooltip"] = function(tooltip, char) VaultTooltip(tooltip, vaultType, char) end
+				},
+				{
+					["key"] = "keystone",
+					["label"] = "LID_KEYSTONE",
+					["columns"] = Single(KeystoneColumn)
+				},
 			}
-		)
-	end
-
-	AddProfessionColumns(columns, 1)
-	AddProfessionColumns(columns, 2)
-	AddPlayedColumn(columns, "played", "LID_TOTAL", "LID_PLAYEDTOTAL")
-	AddPlayedColumn(columns, "playedLevel", "LID_LEVELSHORT", "LID_PLAYEDLEVEL")
-	tinsert(
-		columns,
+		},
+		{
+			["key"] = "raid",
+			["label"] = "LID_RAID",
+			["children"] = {
+				{
+					["key"] = "raidweek",
+					["label"] = "LID_WEEK",
+					["children"] = raidWeek
+				},
+				{
+					["key"] = "raidtotal",
+					["label"] = "LID_EXPANSION",
+					["children"] = raidTotal
+				},
+			}
+		},
+		{
+			["key"] = "professions",
+			["label"] = "LID_PROFESSIONS",
+			["children"] = professions
+		},
+		{
+			["key"] = "vault",
+			["label"] = "LID_GREATVAULT",
+			["children"] = vault
+		},
+		{
+			["key"] = "played",
+			["label"] = "LID_PLAYED",
+			["children"] = {
+				{
+					["key"] = "playedtotal",
+					["label"] = "LID_PLAYEDTOTAL",
+					["columns"] = Single(PlayedColumn, "played", "LID_TOTAL", "LID_PLAYEDTOTAL")
+				},
+				{
+					["key"] = "playedlevel",
+					["label"] = "LID_PLAYEDLEVEL",
+					["columns"] = Single(PlayedColumn, "playedLevel", "LID_LEVELSHORT", "LID_PLAYEDLEVEL")
+				},
+			}
+		},
 		{
 			["key"] = "money",
 			["label"] = "LID_GOLD",
-			["width"] = 90,
-			["align"] = "RIGHT",
-			["descending"] = true,
-			["text"] = function(char)
-				if char["money"] == nil then return MISSING end
-				return FormatGold(char["money"], ScaledIcon(12))
-			end,
-			["tooltip"] = function(tooltip, char)
-				if char["money"] == nil or GetMoneyString == nil then return end
-				tooltip:AddLine(GetMoneyString(char["money"], true), 1, 1, 1)
-			end
-		}
+			["columns"] = Single(MoneyColumn)
+		},
+	}
+end
+
+local function SortColumnNodes(nodes, parentKey, order, hidden)
+	local rank = {}
+	if type(order[parentKey]) == "table" then
+		for index, key in ipairs(order[parentKey]) do
+			rank[key] = index
+		end
+	end
+
+	local default = {}
+	for index, node in ipairs(nodes) do
+		default[node] = index
+		node.checked = hidden[node.key] ~= true
+	end
+
+	table.sort(
+		nodes,
+		function(a, b)
+			local rankA = rank[a.key] or (1000 + default[a])
+			local rankB = rank[b.key] or (1000 + default[b])
+			if rankA == rankB then return default[a] < default[b] end
+			return rankA < rankB
+		end
 	)
 
+	for _, node in ipairs(nodes) do
+		if node.children then SortColumnNodes(node.children, node.key, order, hidden) end
+	end
+end
+
+local function SaveColumnNodes(nodes, parentKey, order, hidden)
+	local keys = {}
+	for _, node in ipairs(nodes) do
+		tinsert(keys, node.key)
+		if node.checked == false then
+			hidden[node.key] = true
+		else
+			hidden[node.key] = nil
+		end
+
+		if node.children then SaveColumnNodes(node.children, node.key, order, hidden) end
+	end
+
+	order[parentKey] = keys
+end
+
+local function GetColumnTree()
+	if columnTree then return columnTree end
+	local db = GetDB()
+	db["COLUMNORDER"] = db["COLUMNORDER"] or {}
+	db["HIDDENCOLUMNS"] = db["HIDDENCOLUMNS"] or {}
+	columnTree = CreateColumnTree()
+	SortColumnNodes(columnTree, "root", db["COLUMNORDER"], db["HIDDENCOLUMNS"])
+	return columnTree
+end
+
+local function CopyPath(path, label)
+	local copy = {}
+	for _, value in ipairs(path) do
+		tinsert(copy, value)
+	end
+
+	if label then tinsert(copy, label) end
+	return copy
+end
+
+local function AddTreeColumns(columns, nodes, path, maps)
+	for _, node in ipairs(nodes) do
+		if node.checked ~= false then
+			if node.children then
+				AddTreeColumns(columns, node.children, CopyPath(path, node.label), maps)
+			elseif node.columns then
+				local group = CopyPath(path, node.group)
+				if #group == 0 then group = nil end
+				for _, column in ipairs(node.columns(maps)) do
+					column.group = group
+					tinsert(columns, column)
+				end
+			end
+		end
+	end
+end
+
+local function BuildColumns(maps)
+	local columns = {NameColumn()}
+	AddTreeColumns(columns, GetColumnTree(), {}, maps)
 	return columns
 end
 
@@ -1207,6 +1529,21 @@ local function UpdateWindowWidth()
 	end
 
 	window:SetWidth(math.min(math.max(GetDB()["WIDTH"] or 0, required), maxWidth))
+end
+
+function ExpansionUtils:GetCharacterOverviewColumnTree()
+	return GetColumnTree()
+end
+
+function ExpansionUtils:UpdateCharacterOverviewColumns()
+	local tree = GetColumnTree()
+	local db = GetDB()
+	db["COLUMNORDER"] = {}
+	SaveColumnNodes(tree, "root", db["COLUMNORDER"], db["HIDDENCOLUMNS"])
+	if list == nil then return end
+	listMaps = GetSeasonMaps()
+	list:SetColumns(BuildColumns(listMaps))
+	UpdateWindowWidth()
 end
 
 function ExpansionUtils:GetCharacterOverviewFontSize()

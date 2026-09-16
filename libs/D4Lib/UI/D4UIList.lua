@@ -43,6 +43,21 @@ local function GetHeaderText(list, column)
     return icon .. " " .. text
 end
 
+local function GetGroupPath(column)
+    if column.group == nil then return {} end
+    if type(column.group) == "table" then return column.group end
+
+    return {column.group}
+end
+
+local function IsSameGroup(a, b, level)
+    for index = 1, level do
+        if a[index] == nil or a[index] ~= b[index] then return false end
+    end
+
+    return true
+end
+
 local function GetCellText(column, data)
     if column.text then return column.text(data) or "" end
     local value = data[column.key]
@@ -212,9 +227,7 @@ function UI.ListMixin:GetFontSize()
 end
 
 function UI.ListMixin:GetHeaderHeight()
-    if self.hasGroups then return self.headerHeight * 2 end
-
-    return self.headerHeight
+    return self.headerHeight * (self.groupDepth + 1)
 end
 
 function UI.ListMixin:GetRowsTop()
@@ -235,7 +248,7 @@ end
 function UI.ListMixin:SetColumns(columns)
     self.columns = {}
     self.columnsByKey = {}
-    self.hasGroups = false
+    self.groupDepth = 0
     for _, source in ipairs(columns or {}) do
         local column = {}
         for key, value in pairs(source) do
@@ -244,7 +257,8 @@ function UI.ListMixin:SetColumns(columns)
 
         column.width = column.width or 60
         column.align = column.align or "LEFT"
-        if column.group ~= nil then self.hasGroups = true end
+        column.groupPath = GetGroupPath(column)
+        self.groupDepth = math.max(self.groupDepth, #column.groupPath)
         if column.key ~= nil then self.columnsByKey[column.key] = column end
         tinsert(self.columns, column)
     end
@@ -306,27 +320,30 @@ function UI.ListMixin:LayoutHeader()
     end
 
     local groupCount = 0
-    local index = 1
-    while index <= #self.columns do
-        local column = self.columns[index]
-        local last = index
-        if column.group ~= nil then
-            while self.columns[last + 1] and self.columns[last + 1].group == column.group do
-                last = last + 1
+    for level = 1, self.groupDepth do
+        local index = 1
+        while index <= #self.columns do
+            local column = self.columns[index]
+            local path = column.groupPath
+            local last = index
+            if path[level] ~= nil then
+                while self.columns[last + 1] and IsSameGroup(path, self.columns[last + 1].groupPath, level) do
+                    last = last + 1
+                end
+
+                groupCount = groupCount + 1
+                local group = self.groupLabels[groupCount] or CreateGroupLabel(self, groupCount)
+                local lastColumn = self.columns[last]
+                group:ClearAllPoints()
+                group:SetPoint("TOPLEFT", self.headerRow, "TOPLEFT", column.x, -(level - 1) * self.headerHeight)
+                group:SetSize(math.max(1, lastColumn.x + lastColumn.actualWidth - column.x), self.headerHeight)
+                self:ApplyFont(group.Label, "GameFontNormalSmall")
+                group.Label:SetText(UI:Text(path[level]))
+                group:Show()
             end
 
-            groupCount = groupCount + 1
-            local group = self.groupLabels[groupCount] or CreateGroupLabel(self, groupCount)
-            local lastColumn = self.columns[last]
-            group:ClearAllPoints()
-            group:SetPoint("TOPLEFT", self.headerRow, "TOPLEFT", column.x, 0)
-            group:SetSize(math.max(1, lastColumn.x + lastColumn.actualWidth - column.x), self.headerHeight)
-            self:ApplyFont(group.Label, "GameFontNormalSmall")
-            group.Label:SetText(UI:Text(column.group))
-            group:Show()
+            index = last + 1
         end
-
-        index = last + 1
     end
 
     for groupIndex = groupCount + 1, #self.groupLabels do
@@ -580,7 +597,7 @@ function UI.WindowMixin:AddList(tab)
     list.headerButtons = {}
     list.groupLabels = {}
     list.totalWidth = 0
-    list.hasGroups = false
+    list.groupDepth = 0
     list:SetSize(math.max(1, win.contentWidth - 8), list.rowHeight)
     if list.sticky then
         local header = win.header or win:AddHeader({["height"] = list.headerHeight})
