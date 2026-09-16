@@ -225,8 +225,15 @@ list:SetRows(MyAddon:GetCharacters())
 ```
 
 Options: `columns`, `rows`, `rowHeight` (20), `headerHeight` (20), `font`
-(`GameFontHighlightSmall`), `sortKey`, `ascending`, `onSort(key, ascending)`,
+(`GameFontHighlightSmall`), `fontSize`, `sortKey`, `ascending`, `onSort(key, ascending)`,
 `onClick(row, mouseButton)`, `emptyText`, `stickyHeader`, `label`, `search`.
+
+`fontSize` (or `list:SetFontSize(size)` later) overrides the size of every cell, header
+and group label. Column widths, `rowHeight`, `headerHeight` and header icons are
+treated as values for the size of `font` and scale by `fontSize / size of font`, so a
+bigger font gets wider columns instead of truncated text. `nil` keeps the font object
+as it is (scale 1). `list:Scaled(value)` applies the same factor, for icon sizes in
+your own `text` callbacks.
 
 Each row is a plain table and is passed as-is to the column callbacks. Column fields:
 
@@ -257,8 +264,9 @@ the rows scroll — the list then owns the window header and should not share it
 
 Methods on the returned list: `SetRows(rows)`, `GetRows()` (in display order),
 `SetColumns(columns)`, `SetSort(key, ascending)` (does not fire `onSort`), `GetSort()`,
-`Refresh()` (re-reads every cell, e.g. after the row tables changed in place) and
-`GetColumnsWidth()` (sum of all column widths).
+`Refresh()` (re-reads every cell, e.g. after the row tables changed in place),
+`SetFontSize(size)` / `GetFontSize()` and `GetColumnsWidth()` (sum of all column
+widths at the current font size -- add 64 for the window width that fits them).
 
 ## Window
 

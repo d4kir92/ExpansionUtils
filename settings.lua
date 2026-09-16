@@ -54,6 +54,8 @@ end
 function ExpansionUtils:InitSettings()
 	EVTAB = EVTAB or {}
 	if EVTAB["MMBTN"] == nil then ExpansionUtils:SV(EVTAB, "MMBTN", true) end
+	ExpansionUtils:AddSlash("exut", ExpansionUtils.ToggleSettings)
+	ExpansionUtils:AddSlash("expansionutils", ExpansionUtils.ToggleSettings)
 	local title = "|T" .. ICON .. ":16:16:0:0|t ExpansionUtils"
 	local version = "v" .. (ExpansionUtils:GetVersion() or "")
 	settings = ExpansionUtils:CreateUIWindow({
@@ -84,6 +86,17 @@ function ExpansionUtils:InitSettings()
 		["search"] = "ONLYMAXLEVEL",
 		["value"] = ExpansionUtils:IsCharacterOverviewOnlyMaxLevel(),
 		["func"] = function(value) ExpansionUtils:SetCharacterOverviewOnlyMaxLevel(value) end
+	})
+
+	local fontMin, fontMax = ExpansionUtils:GetCharacterOverviewFontRange()
+	ExpansionUtils.settingsFontSize = settings:AddSlider({
+		["label"] = "LID_FONTSIZE",
+		["search"] = "FONTSIZE",
+		["value"] = ExpansionUtils:GetCharacterOverviewFontSize(),
+		["min"] = fontMin,
+		["max"] = fontMax,
+		["step"] = 1,
+		["func"] = function(value) ExpansionUtils:SetCharacterOverviewFontSize(value) end
 	})
 
 	settings:ResumeLayout()

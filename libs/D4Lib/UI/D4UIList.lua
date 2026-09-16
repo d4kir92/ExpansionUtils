@@ -27,10 +27,16 @@ local function SetArrowDirection(arrow, ascending)
     end
 end
 
-local function GetHeaderText(column)
+local function GetFontObject(font)
+    if type(font) == "string" then return _G[font] end
+
+    return font
+end
+
+local function GetHeaderText(list, column)
     local text = UI:Text(column.label)
     if column.icon == nil then return text end
-    local size = column.iconSize or 16
+    local size = list:Scaled(column.iconSize or 16)
     local icon = "|T" .. column.icon .. ":" .. size .. ":" .. size .. ":0:0|t"
     if text == "" then return icon end
 
@@ -166,6 +172,45 @@ local function CreateRow(list, index)
     return row
 end
 
+function UI.ListMixin:GetScale()
+    if self.fontSize == nil then return 1 end
+    local base = 10
+    local fontObject = GetFontObject(self.font)
+    if fontObject and fontObject.GetFont then
+        local _, size = fontObject:GetFont()
+        if size and size > 0 then base = size end
+    end
+
+    return self.fontSize / base
+end
+
+function UI.ListMixin:Scaled(value)
+    return math.floor(value * self:GetScale() + 0.5)
+end
+
+function UI.ListMixin:ApplyFont(fontString, font)
+    fontString:SetFontObject(font)
+    if self.fontSize == nil then return end
+    local path, _, flags = fontString:GetFont()
+    if path then fontString:SetFont(path, self.fontSize, flags or "") end
+end
+
+function UI.ListMixin:UpdateMetrics()
+    self.rowHeight = self:Scaled(self.baseRowHeight)
+    self.headerHeight = self:Scaled(self.baseHeaderHeight)
+end
+
+function UI.ListMixin:SetFontSize(size)
+    self.fontSize = size
+    self:UpdateMetrics()
+    self:LayoutColumns()
+    self:Refresh()
+end
+
+function UI.ListMixin:GetFontSize()
+    return self.fontSize
+end
+
 function UI.ListMixin:GetHeaderHeight()
     if self.hasGroups then return self.headerHeight * 2 end
 
@@ -181,7 +226,7 @@ end
 function UI.ListMixin:GetColumnsWidth()
     local width = 0
     for _, column in ipairs(self.columns) do
-        width = width + column.width
+        width = width + self:Scaled(column.width)
     end
 
     return width
@@ -223,8 +268,8 @@ function UI.ListMixin:LayoutColumns()
     local x = 0
     for _, column in ipairs(self.columns) do
         column.x = x
-        column.actualWidth = column.width
-        if column.flex then column.actualWidth = column.width + extra end
+        column.actualWidth = self:Scaled(column.width)
+        if column.flex then column.actualWidth = column.actualWidth + extra end
         x = x + column.actualWidth
     end
 
@@ -234,6 +279,7 @@ function UI.ListMixin:LayoutColumns()
         self:LayoutRow(row)
     end
 
+    self:ApplyFont(self.Empty, "GameFontDisableSmall")
     self.Empty:ClearAllPoints()
     self.Empty:SetPoint("TOPLEFT", self, "TOPLEFT", CELL_INSET, -self:GetRowsTop())
     self.Empty:SetSize(math.max(1, self.totalWidth - CELL_INSET * 2), self.rowHeight)
@@ -251,7 +297,7 @@ function UI.ListMixin:LayoutHeader()
         button:SetPoint("TOPLEFT", self.headerRow, "TOPLEFT", column.x, -groupHeight)
         button:SetSize(math.max(1, column.actualWidth), self.headerHeight)
         button.Label:SetJustifyH(column.align)
-        button.Label:SetText(GetHeaderText(column))
+        button.Label:SetText(GetHeaderText(self, column))
         button:Show()
     end
 
@@ -275,6 +321,7 @@ function UI.ListMixin:LayoutHeader()
             group:ClearAllPoints()
             group:SetPoint("TOPLEFT", self.headerRow, "TOPLEFT", column.x, 0)
             group:SetSize(math.max(1, lastColumn.x + lastColumn.actualWidth - column.x), self.headerHeight)
+            self:ApplyFont(group.Label, "GameFontNormalSmall")
             group.Label:SetText(UI:Text(column.group))
             group:Show()
         end
@@ -313,10 +360,10 @@ function UI.ListMixin:UpdateArrows()
                 right = CELL_INSET + button.Arrow:GetWidth() + ARROW_GAP
                 SetArrowDirection(button.Arrow, self.ascending)
                 button.Arrow:Show()
-                button.Label:SetFontObject("GameFontHighlightSmall")
+                self:ApplyFont(button.Label, "GameFontHighlightSmall")
             else
                 button.Arrow:Hide()
-                button.Label:SetFontObject("GameFontNormalSmall")
+                self:ApplyFont(button.Label, "GameFontNormalSmall")
             end
 
             button.Label:SetPoint("LEFT", button, "LEFT", CELL_INSET, 0)
@@ -335,6 +382,7 @@ function UI.ListMixin:LayoutRow(row)
             row.cells[index] = cell
         end
 
+        self:ApplyFont(cell, self.font)
         cell:ClearAllPoints()
         cell:SetPoint("LEFT", row, "LEFT", column.x + CELL_INSET, 0)
         cell:SetSize(math.max(1, column.actualWidth - CELL_INSET * 2), self.rowHeight)
@@ -515,9 +563,11 @@ function UI.WindowMixin:AddList(tab)
     end
 
     list.win = win
-    list.rowHeight = tab.rowHeight or ROW_HEIGHT
-    list.headerHeight = tab.headerHeight or ROW_HEIGHT
+    list.baseRowHeight = tab.rowHeight or ROW_HEIGHT
+    list.baseHeaderHeight = tab.headerHeight or ROW_HEIGHT
     list.font = tab.font or "GameFontHighlightSmall"
+    list.fontSize = tab.fontSize
+    list:UpdateMetrics()
     list.sticky = tab.stickyHeader ~= false
     list.onSort = tab.onSort
     list.onClick = tab.onClick
