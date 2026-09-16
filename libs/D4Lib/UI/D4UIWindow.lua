@@ -100,6 +100,13 @@ function UI.WindowMixin:UpdateBodyLayout()
     self.scrollFrame:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", self.scrollInset.right, self.scrollInset.bottom + bottomExtra)
 end
 
+function UI.WindowMixin:GetContentOffset()
+    local left = 0
+    if self.scrollInset then left = self.scrollInset.left end
+
+    return left - LEFT_INSET
+end
+
 function UI.WindowMixin:AddHeader(tab)
     tab = tab or {}
     if self.header == nil then self.header = CreateFrame("Frame", D4:GetName(self, true) .. "Header", self) end

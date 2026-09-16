@@ -53,3 +53,4 @@ locale\zhTW.lua
 
 core.lua
 valeera.lua
+characters.lua

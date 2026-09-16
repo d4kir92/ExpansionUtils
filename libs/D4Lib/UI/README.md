@@ -17,6 +17,7 @@ so any string starting with `LID_` is translated and any other string is used as
 | `D4UIDropdown.lua` | `win:AddDropdown` |
 | `D4UIEditbox.lua` | `win:AddEditbox` |
 | `D4UIColorPicker.lua` | `win:AddColorPicker` |
+| `D4UIList.lua` | `win:AddList` |
 
 ## Usage
 
@@ -196,6 +197,68 @@ on top of the translated label.
   The returned frame has `holder:SetValue(r, g, b, a)` to change the colour without
   firing `func`, `holder.r` / `holder.g` / `holder.b` / `holder.a` are the current
   channels and `holder.control` is the swatch button itself.
+
+## List
+
+`win:AddList(tab)` adds a table with sortable columns and returns the list frame.
+It stretches to the window width like the other stretching elements and grows in
+height with its rows, so the window scrolls once there are more rows than fit.
+
+```lua
+local list = win:AddList({
+    columns = {
+        {key = "name", label = "LID_NAME", width = 100, flex = true},
+        {key = "level", label = "LID_LEVEL", width = 40, align = "CENTER", descending = true},
+        {key = "dungeon1", icon = 525134, headerTooltip = "The Rookery", group = "LID_BESTRUNS", width = 32,
+            text = function(row) return row.runs[1] and row.runs[1].level or "" end,
+            value = function(row) return row.runs[1] and row.runs[1].score end,
+            tooltip = function(tooltip, row) tooltip:AddLine(row.name) end},
+    },
+    rows = MyAddon:GetCharacters(),
+    sortKey = MyAddonDB.sortKey,
+    ascending = MyAddonDB.ascending,
+    onSort = function(key, ascending) MyAddonDB.sortKey, MyAddonDB.ascending = key, ascending end,
+    onClick = function(row, button) end,
+})
+
+list:SetRows(MyAddon:GetCharacters())
+```
+
+Options: `columns`, `rows`, `rowHeight` (20), `headerHeight` (20), `font`
+(`GameFontHighlightSmall`), `sortKey`, `ascending`, `onSort(key, ascending)`,
+`onClick(row, mouseButton)`, `emptyText`, `stickyHeader`, `label`, `search`.
+
+Each row is a plain table and is passed as-is to the column callbacks. Column fields:
+
+- `key`: identifies the column for sorting; without `text`/`value` the cell shows and
+  sorts by `row[key]`.
+- `label` and/or `icon` (texture path or file ID, `iconSize` defaults to 16) for the
+  header. A truncated label shows itself as tooltip.
+- `width` in pixels (60 by default). `flex = true` columns share the width left over
+  when the list is wider than the sum of all widths — the window can only grow them,
+  never shrink a column below `width`, so give the window a `minWidth` that fits.
+- `align`: `LEFT` (default), `CENTER` or `RIGHT`, used for header and cells.
+- `text(row)`: the cell text, escape sequences like `|T...|t` and `|c...|r` work.
+- `value(row)`: what the column sorts by. Numbers sort before strings, strings compare
+  case-insensitively, booleans count as 1/0 and `nil` always ends up last, in both
+  directions. Equal values keep the order of the rows passed to `SetRows`.
+- `descending = true`: the first click sorts descending (numbers where more is better).
+- `sortable = false`: clicking the header does nothing.
+- `group`: consecutive columns with the same `group` get one shared label in a second
+  header line above them.
+- `headerTooltip`: a string (translated) or `function(tooltip)` for the header.
+- `tooltip(tooltip, row)`: fills `GameTooltip` while the mouse is over that cell. The
+  row tracks which column is under the cursor, so there is one frame per row, not per
+  cell.
+
+The header row is placed into `win:AddHeader` by default, so it stays visible while
+the rows scroll — the list then owns the window header and should not share it with
+`AddSearch`. Pass `stickyHeader = false` to draw it inside the list instead.
+
+Methods on the returned list: `SetRows(rows)`, `GetRows()` (in display order),
+`SetColumns(columns)`, `SetSort(key, ascending)` (does not fire `onSort`), `GetSort()`,
+`Refresh()` (re-reads every cell, e.g. after the row tables changed in place) and
+`GetColumnsWidth()` (sum of all column widths).
 
 ## Window
 
