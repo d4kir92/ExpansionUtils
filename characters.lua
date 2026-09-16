@@ -14,8 +14,13 @@ local accountGold = nil
 local accountPlayed = nil
 local fontSlider = nil
 local settingFontSize = false
+local LOADING = "|c" .. GREY .. "...|r"
+local RAID_HISTORY_BUDGET = 4
 local raidHistory = nil
 local raidHistoryRetry = 0
+local raidHistoryJob = nil
+local raidHistoryFrame = CreateFrame("Frame")
+local currentChar = nil
 local columnTree = nil
 local childSkillLines = {}
 local pending = false
@@ -475,19 +480,26 @@ local function GetStatisticDifficulty(detail, difficultyNames)
 	return best
 end
 
-local function GetRaidHistory()
-	if raidHistory then return raidHistory end
-	if GetTime() < raidHistoryRetry then return nil end
-	raidHistoryRetry = GetTime() + 60
-	if EncounterJournal and EncounterJournal:IsShown() then
-		raidHistoryRetry = 0
-		return nil
-	end
+local function HasRaidHistoryAPI()
+	if EJ_GetNumTiers == nil or EJ_SelectTier == nil or EJ_GetCurrentTier == nil or EJ_GetInstanceByIndex == nil or EJ_GetInstanceInfo == nil or EJ_SelectInstance == nil or EJ_GetEncounterInfoByIndex == nil or GetServerExpansionLevel == nil then return false end
+	return GetStatisticsCategoryList ~= nil and GetCategoryNumAchievements ~= nil and GetAchievementInfo ~= nil and GetStatistic ~= nil and debugprofilestop ~= nil
+end
 
-	if EJ_GetNumTiers == nil or EJ_SelectTier == nil or EJ_GetCurrentTier == nil or EJ_GetInstanceByIndex == nil or EJ_GetInstanceInfo == nil or EJ_SelectInstance == nil or EJ_GetEncounterInfoByIndex == nil or GetServerExpansionLevel == nil then return nil end
-	if GetStatisticsCategoryList == nil or GetCategoryNumAchievements == nil or GetAchievementInfo == nil or GetStatistic == nil then return nil end
+local function WaitForJournal()
+	while EncounterJournal and EncounterJournal:IsShown() do
+		coroutine.yield()
+	end
+end
+
+local function RestoreJournal(previousTier)
+	if previousTier and EJ_GetCurrentTier() ~= previousTier then EJ_SelectTier(previousTier) end
+	if EncounterJournal and EncounterJournal.instanceID then EJ_SelectInstance(EncounterJournal.instanceID) end
+end
+
+local function BuildRaidHistory()
 	local tier = GetServerExpansionLevel() + 1
 	if tier > EJ_GetNumTiers() then return nil end
+	WaitForJournal()
 	local raids = {}
 	local previousTier = EJ_GetCurrentTier()
 	EJ_SelectTier(tier)
@@ -508,8 +520,12 @@ local function GetRaidHistory()
 		instanceID = EJ_GetInstanceByIndex(index, true)
 	end
 
+	RestoreJournal(previousTier)
 	local bossKeys = {}
 	for _, raid in ipairs(raids) do
+		coroutine.yield()
+		WaitForJournal()
+		previousTier = EJ_GetCurrentTier()
 		EJ_SelectInstance(raid.instanceID)
 		local bossIndex = 1
 		local bossName, _, bossID = EJ_GetEncounterInfoByIndex(bossIndex)
@@ -525,13 +541,20 @@ local function GetRaidHistory()
 			bossIndex = bossIndex + 1
 			bossName, _, bossID = EJ_GetEncounterInfoByIndex(bossIndex)
 		end
+
+		RestoreJournal(previousTier)
 	end
 
-	if previousTier and previousTier ~= tier then EJ_SelectTier(previousTier) end
-	if EncounterJournal and EncounterJournal.instanceID then EJ_SelectInstance(EncounterJournal.instanceID) end
+	coroutine.yield()
 	local difficultyNames = GetDifficultyNames()
+	local started = debugprofilestop()
 	for _, categoryID in ipairs(GetStatisticsCategoryList() or {}) do
 		for statIndex = 1, GetCategoryNumAchievements(categoryID) or 0 do
+			if debugprofilestop() - started > RAID_HISTORY_BUDGET then
+				coroutine.yield()
+				started = debugprofilestop()
+			end
+
 			local _, skip, statID = GetStatistic(categoryID, statIndex)
 			local statName = nil
 			if not skip and statID then statName = select(2, GetAchievementInfo(statID)) end
@@ -563,8 +586,39 @@ local function GetRaidHistory()
 	end
 
 	if #history == 0 then return nil end
-	raidHistory = history
-	return raidHistory
+	return history
+end
+
+local function FinishRaidHistory(history)
+	raidHistoryJob = nil
+	raidHistoryFrame:SetScript("OnUpdate", nil)
+	if history then
+		raidHistory = history
+	else
+		raidHistoryRetry = GetTime() + 60
+	end
+
+	ExpansionUtils:UpdateCharacterOverviewRaidHistory()
+end
+
+local function StartRaidHistoryLoad(delay)
+	if raidHistory or raidHistoryJob or GetTime() < raidHistoryRetry or not HasRaidHistoryAPI() then return end
+	raidHistoryJob = coroutine.create(BuildRaidHistory)
+	local startAt = GetTime() + (delay or 0)
+	raidHistoryFrame:SetScript(
+		"OnUpdate",
+		function()
+			if GetTime() < startAt then return end
+			local ok, result = coroutine.resume(raidHistoryJob)
+			if not ok then
+				FinishRaidHistory(nil)
+				geterrorhandler()(result)
+				return
+			end
+
+			if coroutine.status(raidHistoryJob) == "dead" then FinishRaidHistory(result) end
+		end
+	)
 end
 
 local function GetStatisticCount(statID)
@@ -575,7 +629,7 @@ local function GetStatisticCount(statID)
 end
 
 local function UpdateRaidHistory(char)
-	local history = GetRaidHistory()
+	local history = raidHistory
 	if history == nil then return end
 	local result = {
 		["totals"] = NewKills(),
@@ -612,6 +666,15 @@ local function UpdateRaidHistory(char)
 	end
 
 	char["raidHistory"] = result
+end
+
+local function IsRaidHistoryLoading(char)
+	return raidHistoryJob ~= nil and char == currentChar
+end
+
+function ExpansionUtils:UpdateCharacterOverviewRaidHistory()
+	if currentChar then UpdateRaidHistory(currentChar) end
+	if window and window:IsShown() then ExpansionUtils:RefreshCharacterOverview() end
 end
 
 local function GetChildSkillLine(skillLine, lineName)
@@ -775,6 +838,7 @@ function ExpansionUtils:UpdateCharacterOverviewData()
 	local db = GetDB()
 	local char = db["CHARS"][guid] or {}
 	db["CHARS"][guid] = char
+	currentChar = char
 	local className, classFile = UnitClass("player")
 	char["name"] = Clean(UnitName("player")) or char["name"]
 	char["realm"] = Clean(GetRealmName()) or char["realm"]
@@ -972,7 +1036,7 @@ local function ProfessionTooltip(tooltip, profession)
 	if profession.points then tooltip:AddDoubleLine(Trans("LID_KNOWLEDGEPOINTS"), tostring(profession.points), 1, 1, 1, 1, 1, 1) end
 end
 
-local function RaidColumn(prefix, difficulty, getKills, tooltipFunc)
+local function RaidColumn(prefix, difficulty, getKills, tooltipFunc, isLoading)
 	return {
 		["key"] = prefix .. difficulty.id,
 		["label"] = difficulty.short,
@@ -982,7 +1046,10 @@ local function RaidColumn(prefix, difficulty, getKills, tooltipFunc)
 		["descending"] = true,
 		["text"] = function(char)
 			local total, kills = getKills(char)
-			if total == nil then return MISSING end
+			if total == nil then
+				if isLoading and isLoading(char) then return LOADING end
+				return MISSING
+			end
 			total = PickTotal(total, difficulty.id)
 			local count = kills[difficulty.id] or 0
 			if count > 0 then return Color(difficulty.color, count .. "/" .. total) end
@@ -1282,7 +1349,7 @@ local function CreateColumnTree()
 				["key"] = "raidtotal" .. difficulty.id,
 				["label"] = GetDifficultyName(difficulty),
 				["movable"] = false,
-				["columns"] = Single(RaidColumn, "raidtotal", difficulty, GetRaidHistoryKills, RaidHistoryTooltip)
+				["columns"] = Single(RaidColumn, "raidtotal", difficulty, GetRaidHistoryKills, RaidHistoryTooltip, IsRaidHistoryLoading)
 			}
 		)
 	end
@@ -1767,6 +1834,7 @@ function ExpansionUtils:ToggleCharacterOverview()
 	end
 
 	ExpansionUtils:UpdateCharacterOverviewData()
+	StartRaidHistoryLoad(0.5)
 	ExpansionUtils:RefreshCharacterOverview()
 	window:Show()
 end
