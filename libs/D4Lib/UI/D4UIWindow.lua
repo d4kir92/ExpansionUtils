@@ -177,12 +177,29 @@ local function MakeResizable(win, name, tab)
     grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
     grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
     grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
-    grip:SetScript("OnMouseDown", function() win:StartSizing("BOTTOMRIGHT") end)
+    grip:SetScript(
+        "OnMouseDown",
+        function()
+            local left = win:GetLeft()
+            local top = win:GetTop()
+            if left and top then
+                win:ClearAllPoints()
+                win:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+            end
+
+            win:StartSizing("BOTTOMRIGHT")
+        end
+    )
+
     grip:SetScript(
         "OnMouseUp",
         function()
             win:StopMovingOrSizing()
             if tab.onResize then tab.onResize(math.floor(win:GetWidth() + 0.5), math.floor(win:GetHeight() + 0.5)) end
+            if tab.onMove then
+                local p1, _, p3, p4, p5 = win:GetPoint()
+                tab.onMove(p1, p3, p4, p5)
+            end
         end
     )
 
