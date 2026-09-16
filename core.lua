@@ -100,7 +100,7 @@ ExpansionUtils:RegisterEvent(fEV, "PLAYER_LOGIN")
 ExpansionUtils:OnEvent(fEV, function()
 	ExpansionUtils:UnregisterEvent(fEV, "PLAYER_LOGIN")
 	ExpansionUtils:SetAddonOutput("ExpansionUtils", 133740)
-	ExpansionUtils:SetVersion(133740, "1.2.39")
+	ExpansionUtils:SetVersion(133740, "1.2.40")
 	EVTAB = EVTAB or {}
 	if EVTAB["MMBtnReshiWrap"] == nil then
 		EVTAB["MMBtnReshiWrap"] = EVTAB["MMBtnReshiWrap"] or {}
@@ -222,7 +222,7 @@ ExpansionUtils:OnEvent(fEV, function()
 						if WeeklyRewardsFrame == nil then
 							WeeklyRewards_ShowUI()
 						elseif WeeklyRewardsFrame:IsShown() then
-							WeeklyRewardsFrame:Hide()
+							HideUIPanel(WeeklyRewardsFrame)
 						else
 							WeeklyRewards_ShowUI()
 						end
