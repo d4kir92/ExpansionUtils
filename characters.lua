@@ -5,6 +5,8 @@ local GREY = "ff808080"
 local window = nil
 local list = nil
 local listMaps = nil
+local onlyMaxLevel = nil
+local accountGold = nil
 local pending = false
 local RAID_DIFFICULTIES = {
 	{
@@ -54,7 +56,7 @@ local VAULT_TYPES = {
 	},
 }
 
-local DATA_EVENTS = {"PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED", "PLAYER_MONEY", "PLAYER_LEVEL_UP", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_AVG_ITEM_LEVEL_UPDATE", "PLAYER_SPECIALIZATION_CHANGED", "CHALLENGE_MODE_COMPLETED", "CHALLENGE_MODE_MAPS_UPDATE", "MYTHIC_PLUS_NEW_WEEKLY_RECORD", "WEEKLY_REWARDS_UPDATE", "BAG_UPDATE_DELAYED", "ENCOUNTER_END"}
+local DATA_EVENTS = {"PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED", "PLAYER_MONEY", "PLAYER_LEVEL_UP", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_AVG_ITEM_LEVEL_UPDATE", "PLAYER_SPECIALIZATION_CHANGED", "CHALLENGE_MODE_COMPLETED", "CHALLENGE_MODE_MAPS_UPDATE", "MYTHIC_PLUS_NEW_WEEKLY_RECORD", "WEEKLY_REWARDS_UPDATE", "BAG_UPDATE_DELAYED", "ENCOUNTER_END", "ACCOUNT_MONEY", "BANKFRAME_OPENED"}
 local function GetDB()
 	EVTAB = EVTAB or {}
 	EVTAB["CharacterOverview"] = EVTAB["CharacterOverview"] or {}
@@ -94,6 +96,29 @@ local function GetMapInfo(mapID)
 	if mapID == nil or C_ChallengeMode == nil or C_ChallengeMode.GetMapUIInfo == nil then return nil, nil end
 	local name, _, _, texture = C_ChallengeMode.GetMapUIInfo(mapID)
 	return name, texture
+end
+
+local function FormatGold(copper)
+	local gold = math.floor(copper / 10000)
+	if BreakUpLargeNumbers then gold = BreakUpLargeNumbers(gold) end
+	return gold .. " |TInterface\\MoneyFrame\\UI-GoldIcon:12:12:0:0|t"
+end
+
+local function GetMaxLevel()
+	if GetMaxLevelForPlayerExpansion then return Clean(GetMaxLevelForPlayerExpansion()) end
+	return MAX_PLAYER_LEVEL
+end
+
+local function HasWarbandMoney()
+	return C_Bank ~= nil and C_Bank.FetchDepositedMoney ~= nil and Enum ~= nil and Enum.BankType ~= nil and Enum.BankType.Account ~= nil
+end
+
+local function UpdateWarbandMoney(changed)
+	if not HasWarbandMoney() then return end
+	local ok, money = pcall(C_Bank.FetchDepositedMoney, Enum.BankType.Account)
+	money = Clean(money)
+	if not ok or type(money) ~= "number" then return end
+	if changed or money > 0 then GetDB()["WARBANDMONEY"] = money end
 end
 
 local function FormatDuration(ms)
@@ -343,15 +368,51 @@ function ExpansionUtils:UpdateCharacterOverviewData()
 	end
 
 	char["updated"] = GetNow()
-	if window and window:IsShown() and list then list:SetRows(ExpansionUtils:GetCharacterOverviewRows()) end
+	UpdateWarbandMoney(false)
+	if window and window:IsShown() then ExpansionUtils:RefreshCharacterOverview() end
+end
+
+function ExpansionUtils:IsCharacterOverviewOnlyMaxLevel()
+	return GetDB()["ONLYMAXLEVEL"] == true
 end
 
 function ExpansionUtils:GetCharacterOverviewRows()
 	local rows = {}
+	local maxLevel = nil
+	if ExpansionUtils:IsCharacterOverviewOnlyMaxLevel() then maxLevel = GetMaxLevel() end
 	for _, char in pairs(GetDB()["CHARS"]) do
-		if char["name"] then tinsert(rows, char) end
+		if char["name"] and (maxLevel == nil or (char["level"] or 0) >= maxLevel) then tinsert(rows, char) end
 	end
 	return rows
+end
+
+local function GetAccountMoney()
+	local total = 0
+	for _, char in pairs(GetDB()["CHARS"]) do
+		total = total + (char["money"] or 0)
+	end
+
+	if HasWarbandMoney() then total = total + (GetDB()["WARBANDMONEY"] or 0) end
+	return total
+end
+
+local function UpdateAccountGold()
+	if accountGold == nil then return end
+	accountGold.Text:SetText(ExpansionUtils:Trans("LID_ACCOUNTGOLD") .. ": " .. FormatGold(GetAccountMoney()))
+	accountGold:SetWidth(math.max(1, accountGold.Text:GetStringWidth()))
+end
+
+function ExpansionUtils:RefreshCharacterOverview()
+	if list == nil then return end
+	list:SetRows(ExpansionUtils:GetCharacterOverviewRows())
+	UpdateAccountGold()
+end
+
+function ExpansionUtils:SetCharacterOverviewOnlyMaxLevel(value)
+	GetDB()["ONLYMAXLEVEL"] = value == true
+	if onlyMaxLevel then onlyMaxLevel:SetChecked(value == true) end
+	if ExpansionUtils.settingsOnlyMaxLevel then ExpansionUtils.settingsOnlyMaxLevel:SetChecked(value == true) end
+	ExpansionUtils:RefreshCharacterOverview()
 end
 
 local function RequestUpdate(delay)
@@ -559,9 +620,7 @@ local function BuildColumns(maps)
 			["descending"] = true,
 			["text"] = function(char)
 				if char["money"] == nil then return "" end
-				local gold = math.floor(char["money"] / 10000)
-				if BreakUpLargeNumbers then gold = BreakUpLargeNumbers(gold) end
-				return gold .. " |TInterface\\MoneyFrame\\UI-GoldIcon:12:12:0:0|t"
+				return FormatGold(char["money"])
 			end,
 			["tooltip"] = function(tooltip, char)
 				if char["money"] == nil or GetMoneyString == nil then return end
@@ -678,6 +737,41 @@ local function CreateWindow()
 			db["ASCENDING"] = ascending
 		end,
 	})
+
+	local footer = window:AddFooter({["height"] = 24})
+	onlyMaxLevel = ExpansionUtils:CreateCheckButton("ExpansionUtilsCharacterOverviewOnlyMaxLevel", footer)
+	onlyMaxLevel:SetSize(24, 24)
+	onlyMaxLevel:SetHitRectInsets(0, 0, 0, 0)
+	onlyMaxLevel:SetPoint("LEFT", footer, "LEFT", 8, 0)
+	onlyMaxLevel:SetChecked(ExpansionUtils:IsCharacterOverviewOnlyMaxLevel())
+	onlyMaxLevel.Label = onlyMaxLevel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	onlyMaxLevel.Label:SetPoint("LEFT", onlyMaxLevel, "RIGHT", 4, 0)
+	onlyMaxLevel.Label:SetText(ExpansionUtils:Trans("LID_ONLYMAXLEVEL"))
+	onlyMaxLevel:SetScript("OnClick", function(sel) ExpansionUtils:SetCharacterOverviewOnlyMaxLevel(sel:GetChecked() == true) end)
+	accountGold = CreateFrame("Frame", nil, footer)
+	accountGold:SetPoint("RIGHT", footer, "RIGHT", -8, 0)
+	accountGold:SetHeight(24)
+	accountGold.Text = accountGold:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+	accountGold.Text:SetPoint("RIGHT", accountGold, "RIGHT", 0, 0)
+	accountGold:EnableMouse(true)
+	accountGold:SetScript(
+		"OnEnter",
+		function(sel)
+			if not HasWarbandMoney() or GetMoneyString == nil then return end
+			GameTooltip:SetOwner(sel, "ANCHOR_TOP")
+			GameTooltip:AddDoubleLine(ExpansionUtils:Trans("LID_WARBANDGOLD"), GetMoneyString(GetDB()["WARBANDMONEY"] or 0, true), 1, 0.82, 0, 1, 1, 1)
+			GameTooltip:Show()
+		end
+	)
+
+	accountGold:SetScript(
+		"OnLeave",
+		function(sel)
+			if GameTooltip:GetOwner() == sel then GameTooltip:Hide() end
+		end
+	)
+
+	UpdateAccountGold()
 end
 
 function ExpansionUtils:ToggleCharacterOverview()
@@ -694,7 +788,7 @@ function ExpansionUtils:ToggleCharacterOverview()
 	end
 
 	ExpansionUtils:UpdateCharacterOverviewData()
-	list:SetRows(ExpansionUtils:GetCharacterOverviewRows())
+	ExpansionUtils:RefreshCharacterOverview()
 	window:Show()
 end
 
@@ -710,23 +804,8 @@ ExpansionUtils:OnEvent(
 			end
 
 			if C_MythicPlus and C_MythicPlus.RequestMapInfo then C_MythicPlus.RequestMapInfo() end
-			EVTAB = EVTAB or {}
-			if EVTAB["MMBtnCharacterOverview"] == nil then
-				EVTAB["MMBtnCharacterOverview"] = {}
-				ExpansionUtils:SV(EVTAB["MMBtnCharacterOverview"], "MMBTNCHARACTEROVERVIEW", true)
-			end
-
-			if ExpansionUtils:GV(EVTAB["MMBtnCharacterOverview"], "MMBTNCHARACTEROVERVIEW", true) then
-				ExpansionUtils:CreateMinimapButton({
-					["name"] = "ExpansionUtilsCharacterOverview",
-					["icon"] = "Interface\\Icons\\INV_Misc_GroupNeedMore",
-					["dbtab"] = EVTAB["MMBtnCharacterOverview"],
-					["vTT"] = {{ExpansionUtils:Trans("LID_CHARACTEROVERVIEW"), "|T136033:16:16:0:0|t ExpansionUtils"}, {ExpansionUtils:Trans("LID_LEFTCLICK"), ExpansionUtils:Trans("LID_TOGGLECHARACTEROVERVIEW")}},
-					["funcL"] = function() ExpansionUtils:ToggleCharacterOverview() end,
-					["addoncomp"] = false,
-					["dbkey"] = "MMBTNCHARACTEROVERVIEW"
-				})
-			end
+		elseif event == "ACCOUNT_MONEY" then
+			UpdateWarbandMoney(true)
 		end
 
 		RequestUpdate(3)

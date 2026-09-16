@@ -118,31 +118,27 @@ ExpansionUtils:OnEvent(fEV, function()
 	end
 
 	if ExpansionUtils:GetWoWBuild() == "RETAIL" then
-		if ExpansionUtils:GV(EVTAB["MMBtnCooldownViewerSettings"], "MMBTNCooldownViewerSettings", true) then
-			local mmbtn = nil
-			ExpansionUtils:CreateMinimapButton({
-				["name"] = "CooldownViewerSettings",
-				["atlas"] = "QuestLog-icon-setting",
-				["var"] = mmbtn,
-				["dbtab"] = EVTAB["MMBtnCooldownViewerSettings"],
-				["vTT"] = {{ExpansionUtils:Trans("LID_CooldownViewerSettings"), "|T136033:16:16:0:0|t ExpansionUtils"}, {ExpansionUtils:Trans("LID_LEFTCLICK"), ExpansionUtils:Trans("LID_TOGGLECooldownViewerSettings")}},
-				["vTTUpdate"] = function(sel, tt) return false end,
-				["funcL"] = function()
-					if not InCombatLockdown() and CooldownViewerSettings then
-						if CooldownViewerSettings:IsVisible() then
-							CooldownViewerSettings:Hide()
-						else
-							CooldownViewerSettings:Show()
-						end
+		ExpansionUtils:CreateMinimapButton({
+			["name"] = "CooldownViewerSettings",
+			["atlas"] = "QuestLog-icon-setting",
+			["dbtab"] = EVTAB["MMBtnCooldownViewerSettings"],
+			["vTT"] = {{ExpansionUtils:Trans("LID_CooldownViewerSettings"), "|T136033:16:16:0:0|t ExpansionUtils"}, {ExpansionUtils:Trans("LID_LEFTCLICK"), ExpansionUtils:Trans("LID_TOGGLECooldownViewerSettings")}},
+			["vTTUpdate"] = function(sel, tt) return false end,
+			["funcL"] = function()
+				if not InCombatLockdown() and CooldownViewerSettings then
+					if CooldownViewerSettings:IsVisible() then
+						CooldownViewerSettings:Hide()
+					else
+						CooldownViewerSettings:Show()
 					end
-				end,
-				["addoncomp"] = false,
-				["sw"] = 64,
-				["sh"] = 64,
-				["border"] = false,
-				["dbkey"] = "MMBTNCooldownViewerSettings"
-			})
-		end
+				end
+			end,
+			["addoncomp"] = false,
+			["sw"] = 64,
+			["sh"] = 64,
+			["border"] = false,
+			["dbkey"] = "MMBTNCooldownViewerSettings"
+		})
 
 		if ExpansionUtils:GV(EVTAB["MMBtnReshiWrap"], "MMBTNRESHIIWRAP", true) then
 			local btnReshii = ExpansionUtils:CreateMinimapButton({
@@ -187,7 +183,7 @@ ExpansionUtils:OnEvent(fEV, function()
 				["atlas"] = "GreatVault-32x32",
 				["var"] = mmbtn,
 				["dbtab"] = EVTAB["MMBtnGreatVault"],
-				["vTT"] = {{ExpansionUtils:Trans("LID_GREATVAULT"), "|T136033:16:16:0:0|t ExpansionUtils"}, {ExpansionUtils:Trans("LID_LEFTCLICK"), ExpansionUtils:Trans("LID_TOGGLEGREATVAULT")}},
+				["vTT"] = {{ExpansionUtils:Trans("LID_GREATVAULT"), "|T136033:16:16:0:0|t ExpansionUtils"}, {ExpansionUtils:Trans("LID_LEFTCLICK"), ExpansionUtils:Trans("LID_TOGGLEGREATVAULT")}, {ExpansionUtils:Trans("LID_RIGHTCLICK"), ExpansionUtils:Trans("LID_TOGGLECHARACTEROVERVIEW")}},
 				["vTTUpdate"] = function(sel, tt)
 					if C_WeeklyRewards.HasAvailableRewards() or C_WeeklyRewards.HasGeneratedRewards() then
 						tt:AddDoubleLine(" ", " ")
@@ -231,6 +227,7 @@ ExpansionUtils:OnEvent(fEV, function()
 						end
 					end
 				end,
+				["funcR"] = function() ExpansionUtils:ToggleCharacterOverview() end,
 				["addoncomp"] = false,
 				["sw"] = 64,
 				["sh"] = 64,
@@ -239,6 +236,8 @@ ExpansionUtils:OnEvent(fEV, function()
 				["noalpha"] = true
 			})
 		end
+
+		ExpansionUtils:InitSettings()
 	end
 
 	if ExpansionUtils:GetWoWBuild() ~= "RETAIL" then
