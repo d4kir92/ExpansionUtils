@@ -84,7 +84,7 @@ function ExpansionUtils:InitSettings()
 	settings:AddSearch()
 	AddCategory("MINIMAPBUTTONS")
 	mmbtnCheckbox = AddMinimapCheckbox("LID_MMBTN", EVTAB, "MMBTN", "ExpansionUtils")
-	AddMinimapCheckbox("LID_SHOWVAULTMMBTN", EVTAB["MMBtnGreatVault"], "MMBTNGREATVAULT", "ExpansionUtilsGreatVault")
+	if not ExpansionUtils:IsCamelot() then AddMinimapCheckbox("LID_SHOWVAULTMMBTN", EVTAB["MMBtnGreatVault"], "MMBTNGREATVAULT", "ExpansionUtilsGreatVault") end
 	AddMinimapCheckbox("LID_SHOWCOOLDOWNVIEWERMMBTN", EVTAB["MMBtnCooldownViewerSettings"], "MMBTNCooldownViewerSettings", "CooldownViewerSettings")
 	AddCategory("CHARACTEROVERVIEW")
 	ExpansionUtils.settingsOnlyMaxLevel = settings:AddCheckbox({
@@ -124,8 +124,9 @@ function ExpansionUtils:InitSettings()
 		["name"] = "ExpansionUtils",
 		["icon"] = ICON,
 		["dbtab"] = EVTAB,
-		["vTT"] = {{title, version}, {ExpansionUtils:Trans("LID_LEFTCLICK"), ExpansionUtils:Trans("LID_OPENSETTINGS")}, {ExpansionUtils:Trans("LID_RIGHTCLICK"), ExpansionUtils:Trans("LID_HIDEMINIMAPBUTTON")}},
+		["vTT"] = {{title, version}, {ExpansionUtils:Trans("LID_LEFTCLICK"), ExpansionUtils:Trans("LID_OPENSETTINGS")}, {ExpansionUtils:Trans("LID_SHIFTLEFTCLICK"), ExpansionUtils:Trans("LID_TOGGLECHARACTEROVERVIEW")}, {ExpansionUtils:Trans("LID_RIGHTCLICK"), ExpansionUtils:Trans("LID_HIDEMINIMAPBUTTON")}},
 		["funcL"] = function() ExpansionUtils:ToggleSettings() end,
+		["funcSL"] = function() ExpansionUtils:ToggleCharacterOverview() end,
 		["funcR"] = function()
 			ExpansionUtils:SV(EVTAB, "MMBTN", false)
 			ExpansionUtils:HideMMBtn("ExpansionUtils")

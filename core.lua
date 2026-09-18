@@ -176,7 +176,7 @@ ExpansionUtils:OnEvent(fEV, function()
 			end)
 		end
 
-		if ExpansionUtils:GV(EVTAB["MMBtnGreatVault"], "MMBTNVAULT", true) then
+		if not ExpansionUtils:IsCamelot() and ExpansionUtils:GV(EVTAB["MMBtnGreatVault"], "MMBTNVAULT", true) then
 			local mmbtn = nil
 			ExpansionUtils:CreateMinimapButton({
 				["name"] = "ExpansionUtilsGreatVault",
