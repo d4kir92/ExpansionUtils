@@ -1766,7 +1766,6 @@ local function CreateWindow()
 		["onMove"] = function(point, relativePoint, x, y) db["POINT"] = {point, "UIParent", relativePoint, x, y} end,
 	})
 
-	tinsert(UISpecialFrames, "ExpansionUtilsCharacterOverview")
 	listMaps = GetSeasonMaps()
 	list = window:AddList({
 		["fontSize"] = GetFontSize(),
@@ -1851,6 +1850,7 @@ ExpansionUtils:OnEvent(
 			end
 
 			if C_MythicPlus and C_MythicPlus.RequestMapInfo then C_MythicPlus.RequestMapInfo() end
+			if window == nil then CreateWindow() end
 			C_Timer.After(5, RequestPlayed)
 		elseif event == "PLAYER_LOGOUT" then
 			local guid = Clean(UnitGUID("player"))
