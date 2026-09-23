@@ -213,6 +213,7 @@ end
 
 local function UpdateVaultButton()
 	if ExpansionUtils:GetWoWBuild() ~= "RETAIL" then return end
+	if type(EVTAB) ~= "table" or type(EVTAB["MMBtnGreatVault"]) ~= "table" then return end
 	if not ExpansionUtils:GV(EVTAB["MMBtnGreatVault"], "MMBTNVAULT", true) then return end
 	if not ExpansionUtils:HasSystem("GREATVAULT") then
 		if vaultButton then ExpansionUtils:HideMMBtn("ExpansionUtilsGreatVault") end

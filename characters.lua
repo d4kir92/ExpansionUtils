@@ -990,13 +990,39 @@ local function RunTooltip(tooltip, mapID, char)
 	end
 end
 
+local function VaultRewardsTooltip(tooltip, char)
+	tooltip:AddLine(Trans("LID_GREATVAULT"))
+	tooltip:AddLine(Trans("LID_REWARDSWAITING"), 0, 1, 0)
+	for _, vaultType in ipairs(VAULT_TYPES) do
+		local slots, progress, maxThreshold, unlocked, stale = GetVaultState(char, vaultType.key)
+		if slots then
+			local r, g, b = 0.5, 0.5, 0.5
+			local right = Trans("LID_OUTDATED")
+			if not stale then
+				right = progress .. "/" .. maxThreshold
+				if unlocked >= #slots then
+					r, g, b = 0, 1, 0
+				elseif unlocked > 0 then
+					r, g, b = 1, 1, 0
+				end
+			end
+
+			tooltip:AddDoubleLine(vaultType.label or "", right, 1, 1, 1, r, g, b)
+		end
+	end
+end
+
 local function VaultTooltip(tooltip, vaultType, char)
+	if HasVaultRewardsWaiting(char) then
+		VaultRewardsTooltip(tooltip, char)
+		return
+	end
+
 	tooltip:AddLine(Trans("LID_GREATVAULT") .. ": " .. (vaultType.label or ""))
 	local slots, _, _, _, stale = GetVaultState(char, vaultType.key)
 	if slots == nil then return end
 	if stale then
 		tooltip:AddLine(Trans("LID_OUTDATED"), 0.5, 0.5, 0.5)
-		if HasVaultRewardsWaiting(char) then tooltip:AddLine(Trans("LID_REWARDSWAITING"), 0, 1, 0) end
 		return
 	end
 
@@ -1291,6 +1317,7 @@ local function VaultColumn(vaultType)
 	return {
 		["key"] = "vault" .. vaultType.key,
 		["label"] = vaultType.label,
+		["vault"] = true,
 		["width"] = 44,
 		["align"] = "CENTER",
 		["descending"] = true,
@@ -1335,6 +1362,24 @@ end
 local function Single(factory, ...)
 	local args = {...}
 	return function() return {factory(unpack(args))} end
+end
+
+local function IsColumnNodeAllowed(key)
+	if key == "mythicplus" then return HasMythicPlus() end
+	if key == "vault" or key == "raidweek" then return HasGreatVault() end
+	return true
+end
+
+local function FilterColumnNodes(nodes)
+	local result = {}
+	for _, node in ipairs(nodes) do
+		if IsColumnNodeAllowed(node.key) then
+			if node.children then node.children = FilterColumnNodes(node.children) end
+			tinsert(result, node)
+		end
+	end
+
+	return result
 end
 
 local function CreateColumnTree()
@@ -1402,7 +1447,7 @@ local function CreateColumnTree()
 		tinsert(professions, node)
 	end
 
-	return {
+	local nodes = {
 		{
 			["key"] = "level",
 			["label"] = "LID_LEVELSHORT",
@@ -1494,6 +1539,8 @@ local function CreateColumnTree()
 			["columns"] = Single(MoneyColumn)
 		},
 	}
+
+	return FilterColumnNodes(nodes)
 end
 
 local function SortColumnNodes(nodes, parentKey, order, hidden)
@@ -1578,9 +1625,34 @@ local function AddTreeColumns(columns, nodes, path, maps)
 	end
 end
 
+local function VaultSpanText()
+	return Color("ff00ff00", Trans("LID_REWARDSWAITING"))
+end
+
+local function ApplyVaultSpan(columns)
+	local first = nil
+	local count = 0
+	for index, column in ipairs(columns) do
+		if column.vault then
+			if first == nil then first = index end
+			count = count + 1
+		end
+	end
+
+	if first == nil or count < 2 then return end
+	local owner = columns[first]
+	owner.spanAlign = "CENTER"
+	owner.spanText = VaultSpanText
+	owner.span = function(char)
+		if HasVaultRewardsWaiting(char) then return count end
+		return 1
+	end
+end
+
 local function BuildColumns(maps)
 	local columns = {NameColumn()}
 	AddTreeColumns(columns, GetColumnTree(), {}, maps)
+	ApplyVaultSpan(columns)
 	return columns
 end
 
