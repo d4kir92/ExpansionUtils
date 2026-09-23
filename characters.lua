@@ -20,6 +20,7 @@ local raidHistory = nil
 local raidHistoryRetry = 0
 local raidHistoryJob = nil
 local raidHistoryFrame = CreateFrame("Frame")
+local raidDifficultyChanged = false
 local currentChar = nil
 local columnTree = nil
 local childSkillLines = {}
@@ -172,6 +173,10 @@ end
 
 local function HasMythicPlus()
 	return ExpansionUtils:HasSystem("MYTHICPLUS")
+end
+
+local function HasRaidDifficulty(difficultyID)
+	return ExpansionUtils:HasSystem("RAIDDIFFICULTY" .. difficultyID)
 end
 
 local function UpdateWarbandMoney(changed)
@@ -488,6 +493,12 @@ local function GetStatisticDifficulty(detail, difficultyNames)
 	return best
 end
 
+local function HasTrackedStatistic(value)
+	value = Clean(value)
+	if type(value) == "number" then return true end
+	return type(value) == "string" and string.find(value, "%d") ~= nil
+end
+
 local function HasRaidHistoryAPI()
 	if EJ_GetNumTiers == nil or EJ_SelectTier == nil or EJ_GetCurrentTier == nil or EJ_GetInstanceByIndex == nil or EJ_GetInstanceInfo == nil or EJ_SelectInstance == nil or EJ_GetEncounterInfoByIndex == nil or GetServerExpansionLevel == nil then return false end
 	return GetStatisticsCategoryList ~= nil and GetCategoryNumAchievements ~= nil and GetAchievementInfo ~= nil and GetStatistic ~= nil and debugprofilestop ~= nil
@@ -555,6 +566,7 @@ local function BuildRaidHistory()
 
 	coroutine.yield()
 	local difficultyNames = GetDifficultyNames()
+	local availableDifficulties = {}
 	local started = debugprofilestop()
 	for _, categoryID in ipairs(GetStatisticsCategoryList() or {}) do
 		for statIndex = 1, GetCategoryNumAchievements(categoryID) or 0 do
@@ -563,7 +575,7 @@ local function BuildRaidHistory()
 				started = debugprofilestop()
 			end
 
-			local _, skip, statID = GetStatistic(categoryID, statIndex)
+			local statistic, skip, statID = GetStatistic(categoryID, statIndex)
 			local statName = nil
 			if not skip and statID then statName = select(2, GetAchievementInfo(statID)) end
 			if statName then
@@ -571,7 +583,8 @@ local function BuildRaidHistory()
 				local boss, exact = FindStatisticBoss(key, bossKeys)
 				local difficultyID = nil
 				if boss then difficultyID = GetStatisticDifficulty(detail, difficultyNames) end
-				if difficultyID then
+				if difficultyID and HasTrackedStatistic(statistic) then
+					availableDifficulties[difficultyID] = true
 					local target = boss.fuzzy
 					if exact then target = boss.stats end
 					if (target[difficultyID] or 0) < statID then target[difficultyID] = statID end
@@ -593,6 +606,10 @@ local function BuildRaidHistory()
 		if found then tinsert(history, raid) end
 	end
 
+	for _, difficulty in ipairs(RAID_DIFFICULTIES) do
+		if ExpansionUtils:SetSystemAvailable("RAIDDIFFICULTY" .. difficulty.id, availableDifficulties[difficulty.id] == true) then raidDifficultyChanged = true end
+	end
+
 	if #history == 0 then return nil end
 	return history
 end
@@ -607,6 +624,10 @@ local function FinishRaidHistory(history)
 	end
 
 	ExpansionUtils:UpdateCharacterOverviewRaidHistory()
+	if raidDifficultyChanged then
+		raidDifficultyChanged = false
+		ExpansionUtils:RefreshCharacterOverviewRaidColumns()
+	end
 end
 
 local function StartRaidHistoryLoad(delay)
@@ -1367,6 +1388,8 @@ end
 local function IsColumnNodeAllowed(key)
 	if key == "mythicplus" then return HasMythicPlus() end
 	if key == "vault" or key == "raidweek" then return HasGreatVault() end
+	local difficultyID = string.match(key, "^raidweek(%d+)$") or string.match(key, "^raidtotal(%d+)$")
+	if difficultyID then return HasRaidDifficulty(tonumber(difficultyID)) end
 	return true
 end
 
@@ -1375,7 +1398,7 @@ local function FilterColumnNodes(nodes)
 	for _, node in ipairs(nodes) do
 		if IsColumnNodeAllowed(node.key) then
 			if node.children then node.children = FilterColumnNodes(node.children) end
-			tinsert(result, node)
+			if node.columns or node.children == nil or #node.children > 0 then tinsert(result, node) end
 		end
 	end
 
@@ -1383,6 +1406,17 @@ local function FilterColumnNodes(nodes)
 end
 
 local function CreateColumnTree()
+	local systems = EVTAB and EVTAB["Systems"]
+	if systems and GetServerExpansionLevel then
+		local tier = GetServerExpansionLevel() + 1
+		if systems["RAIDDIFFICULTYTIER"] ~= tier then
+			systems["RAIDDIFFICULTYTIER"] = tier
+			for _, difficulty in ipairs(RAID_DIFFICULTIES) do
+				systems["RAIDDIFFICULTY" .. difficulty.id] = nil
+			end
+		end
+	end
+
 	local raidWeek = {}
 	local raidTotal = {}
 	for _, difficulty in ipairs(RAID_DIFFICULTIES) do
@@ -1610,7 +1644,7 @@ end
 
 local function AddTreeColumns(columns, nodes, path, maps)
 	for _, node in ipairs(nodes) do
-		if node.checked ~= false then
+		if node.checked ~= false and IsColumnNodeAllowed(node.key) then
 			if node.children then
 				AddTreeColumns(columns, node.children, CopyPath(path, node.label), maps)
 			elseif node.columns then
@@ -1676,6 +1710,13 @@ local function UpdateWindowWidth()
 	end
 
 	window:SetWidth(math.min(math.max(GetDB()["WIDTH"] or 0, required), maxWidth))
+end
+
+function ExpansionUtils:RefreshCharacterOverviewRaidColumns()
+	if list == nil then return end
+	listMaps = GetSeasonMaps()
+	list:SetColumns(BuildColumns(listMaps))
+	UpdateWindowWidth()
 end
 
 function ExpansionUtils:GetCharacterOverviewColumnTree()

@@ -59,12 +59,23 @@ local SYSTEMS = {
 
 function ExpansionUtils:HasSystem(key)
 	local probe = SYSTEMS[key]
-	if probe == nil then return true end
+	if probe == nil then
+		if string.match(key, "^RAIDDIFFICULTY%d+$") then return GetSystems()[key] ~= false end
+		return true
+	end
 	if probe() then
 		GetSystems()[key] = true
 		return true
 	end
 	return GetSystems()[key] ~= false
+end
+
+function ExpansionUtils:SetSystemAvailable(key, available)
+	local systems = GetSystems()
+	available = available == true
+	if systems[key] == available then return false end
+	systems[key] = available
+	return true
 end
 
 local function GetVaultData()
