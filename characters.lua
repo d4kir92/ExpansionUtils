@@ -163,7 +163,7 @@ local function HasWarbandMoney()
 end
 
 local function HasKnowledgePoints()
-	return C_ProfSpecs ~= nil and C_ProfSpecs.GetCurrencyInfoForSkillLine ~= nil
+	return ExpansionUtils:HasSystem("PROFESSIONKNOWLEDGE")
 end
 
 local function HasGreatVault()

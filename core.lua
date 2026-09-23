@@ -39,9 +39,22 @@ local function ProbeMythicPlus()
 	return false
 end
 
+local function ProbeProfessionKnowledge()
+	if C_ProfSpecs == nil or C_ProfSpecs.SkillLineHasSpecialization == nil or C_ProfSpecs.GetCurrencyInfoForSkillLine == nil then return false end
+	if C_TradeSkillUI == nil or C_TradeSkillUI.GetAllProfessionTradeSkillLines == nil then return false end
+	local ok, skillLines = pcall(C_TradeSkillUI.GetAllProfessionTradeSkillLines)
+	if not ok or type(skillLines) ~= "table" then return false end
+	for _, skillLineID in ipairs(skillLines) do
+		local hasOk, hasSpecialization = pcall(C_ProfSpecs.SkillLineHasSpecialization, skillLineID)
+		if hasOk and Clean(hasSpecialization) == true then return true end
+	end
+	return false
+end
+
 local SYSTEMS = {
 	["GREATVAULT"] = ProbeGreatVault,
-	["MYTHICPLUS"] = ProbeMythicPlus
+	["MYTHICPLUS"] = ProbeMythicPlus,
+	["PROFESSIONKNOWLEDGE"] = ProbeProfessionKnowledge
 }
 
 function ExpansionUtils:HasSystem(key)
@@ -235,6 +248,16 @@ function ExpansionUtils:UpdateSystems()
 	if changed then UpdateVaultButton() end
 end
 
+function ExpansionUtils:UpdateSystem(key)
+	local probe = SYSTEMS[key]
+	if probe == nil then return end
+	local systems = GetSystems()
+	local value = probe() == true
+	if systems[key] == value then return end
+	systems[key] = value
+	if key == "GREATVAULT" then UpdateVaultButton() end
+end
+
 local reshii = false
 local fEV = CreateFrame("Frame")
 ExpansionUtils:RegisterEvent(fEV, "PLAYER_LOGIN")
@@ -257,6 +280,7 @@ ExpansionUtils:OnEvent(fEV, function()
 		EVTAB["MMBtnCooldownViewerSettings"] = EVTAB["MMBtnCooldownViewerSettings"] or {}
 		ExpansionUtils:SV(EVTAB["MMBtnCooldownViewerSettings"], "MMBTNCooldownViewerSettings", true)
 	end
+	ExpansionUtils:UpdateSystem("PROFESSIONKNOWLEDGE")
 
 	if ExpansionUtils:GetWoWBuild() == "RETAIL" then
 		ExpansionUtils:CreateMinimapButton({
