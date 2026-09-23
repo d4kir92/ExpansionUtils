@@ -36,7 +36,6 @@ local function ProbeMythicPlus()
 		local ok, maps = pcall(C_ChallengeMode.GetMapTable)
 		if ok and type(maps) == "table" and #maps > 0 then return true end
 	end
-
 	return false
 end
 
@@ -52,7 +51,6 @@ function ExpansionUtils:HasSystem(key)
 		GetSystems()[key] = true
 		return true
 	end
-
 	return GetSystems()[key] ~= false
 end
 
@@ -243,7 +241,7 @@ ExpansionUtils:RegisterEvent(fEV, "PLAYER_LOGIN")
 ExpansionUtils:OnEvent(fEV, function()
 	ExpansionUtils:UnregisterEvent(fEV, "PLAYER_LOGIN")
 	ExpansionUtils:SetAddonOutput("ExpansionUtils", 133740)
-	ExpansionUtils:SetVersion(133740, "1.2.42")
+	ExpansionUtils:SetVersion(133740, "1.2.43")
 	EVTAB = EVTAB or {}
 	if EVTAB["MMBtnReshiWrap"] == nil then
 		EVTAB["MMBtnReshiWrap"] = EVTAB["MMBtnReshiWrap"] or {}
@@ -320,7 +318,6 @@ ExpansionUtils:OnEvent(fEV, function()
 		end
 
 		UpdateVaultButton()
-
 		ExpansionUtils:InitSettings()
 	end
 
