@@ -166,6 +166,14 @@ local function HasKnowledgePoints()
 	return C_ProfSpecs ~= nil and C_ProfSpecs.GetCurrencyInfoForSkillLine ~= nil
 end
 
+local function HasGreatVault()
+	return ExpansionUtils:HasSystem("GREATVAULT")
+end
+
+local function HasMythicPlus()
+	return ExpansionUtils:HasSystem("MYTHICPLUS")
+end
+
 local function UpdateWarbandMoney(changed)
 	if not HasWarbandMoney() then return end
 	local ok, money = pcall(C_Bank.FetchDepositedMoney, Enum.BankType.Account)

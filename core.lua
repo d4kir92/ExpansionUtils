@@ -1,4 +1,61 @@
 local _, ExpansionUtils = ...
+local function Clean(value)
+	if ExpansionUtils:IsSecret(value) then return nil end
+	return value
+end
+
+local function GetSystems()
+	EVTAB = EVTAB or {}
+	EVTAB["Systems"] = EVTAB["Systems"] or {}
+	return EVTAB["Systems"]
+end
+
+local function ProbeGreatVault()
+	if C_WeeklyRewards == nil or C_WeeklyRewards.GetActivities == nil then return false end
+	local ok, activities = pcall(C_WeeklyRewards.GetActivities)
+	if ok and type(activities) == "table" and #activities > 0 then return true end
+	if C_WeeklyRewards.HasAvailableRewards == nil then return false end
+	local hasOk, hasRewards = pcall(C_WeeklyRewards.HasAvailableRewards)
+	return hasOk and Clean(hasRewards) == true
+end
+
+local function ProbeMythicPlus()
+	if C_MythicPlus == nil then return false end
+	if C_MythicPlus.IsMythicPlusActive then
+		local ok, active = pcall(C_MythicPlus.IsMythicPlusActive)
+		if ok and Clean(active) == true then return true end
+	end
+
+	if C_MythicPlus.GetCurrentSeason then
+		local ok, season = pcall(C_MythicPlus.GetCurrentSeason)
+		season = Clean(season)
+		if ok and type(season) == "number" and season > 0 then return true end
+	end
+
+	if C_ChallengeMode and C_ChallengeMode.GetMapTable then
+		local ok, maps = pcall(C_ChallengeMode.GetMapTable)
+		if ok and type(maps) == "table" and #maps > 0 then return true end
+	end
+
+	return false
+end
+
+local SYSTEMS = {
+	["GREATVAULT"] = ProbeGreatVault,
+	["MYTHICPLUS"] = ProbeMythicPlus
+}
+
+function ExpansionUtils:HasSystem(key)
+	local probe = SYSTEMS[key]
+	if probe == nil then return true end
+	if probe() then
+		GetSystems()[key] = true
+		return true
+	end
+
+	return GetSystems()[key] ~= false
+end
+
 local function GetVaultData()
 	local vaultData = C_WeeklyRewards.GetActivities()
 	if not vaultData then return {}, {}, {} end
@@ -94,6 +151,91 @@ function ExpansionUtils:FixCastBar(castbar, notInterruptible)
 	end
 end
 
+local vaultButton = nil
+local function CreateVaultButton()
+	vaultButton = ExpansionUtils:CreateMinimapButton({
+		["name"] = "ExpansionUtilsGreatVault",
+		["atlas"] = "GreatVault-32x32",
+		["dbtab"] = EVTAB["MMBtnGreatVault"],
+		["vTT"] = {{ExpansionUtils:Trans("LID_GREATVAULT"), "|T136033:16:16:0:0|t ExpansionUtils"}, {ExpansionUtils:Trans("LID_LEFTCLICK"), ExpansionUtils:Trans("LID_TOGGLECHARACTEROVERVIEW")}, {ExpansionUtils:Trans("LID_RIGHTCLICK"), ExpansionUtils:Trans("LID_TOGGLEGREATVAULT")}},
+		["vTTUpdate"] = function(sel, tt)
+			if C_WeeklyRewards.HasAvailableRewards() or C_WeeklyRewards.HasGeneratedRewards() then
+				tt:AddDoubleLine(" ", " ")
+				tt:AddDoubleLine("GREAT VAULT HAS REWARD", "")
+			end
+
+			tt:AddDoubleLine(" ", " ")
+			local vaultData = GetVaultData()
+			local raid = GetVaultStatus(vaultData, "raid")
+			tt:AddDoubleLine(RAID, raid)
+			local raidIlvl = GetVaultStatusIlvl(vaultData, "raid")
+			if strtrim(raidIlvl) ~= "" then tt:AddDoubleLine(" ", raidIlvl) end
+			tt:AddDoubleLine(" ", " ")
+			local mplus = GetVaultStatus(vaultData, "mplus")
+			tt:AddDoubleLine(PLAYER_DIFFICULTY_MYTHIC_PLUS, mplus)
+			local mplusIlvl = GetVaultStatusIlvl(vaultData, "mplus")
+			if strtrim(mplusIlvl) ~= "" then tt:AddDoubleLine(" ", mplusIlvl) end
+			tt:AddDoubleLine(" ", " ")
+			local world = GetVaultStatus(vaultData, "world")
+			tt:AddDoubleLine(WORLD, world)
+			local worldIlvl = GetVaultStatusIlvl(vaultData, "world")
+			if strtrim(worldIlvl) ~= "" then tt:AddDoubleLine(" ", worldIlvl) end
+			for i = 1, 99 do
+				local tr = _G[ExpansionUtils:GetName(tt) .. "TextRight" .. i]
+				if tr then
+					tr:SetFontObject("ConsoleFontNormal")
+					local f1, _, f3 = tr:GetFont()
+					tr:SetFont(f1, 14, f3)
+				end
+			end
+			return false
+		end,
+		["funcL"] = function() ExpansionUtils:ToggleCharacterOverview() end,
+		["funcR"] = function()
+			if not InCombatLockdown() then
+				if WeeklyRewardsFrame == nil then
+					WeeklyRewards_ShowUI()
+				elseif WeeklyRewardsFrame:IsShown() then
+					HideUIPanel(WeeklyRewardsFrame)
+				else
+					WeeklyRewards_ShowUI()
+				end
+			end
+		end,
+		["addoncomp"] = false,
+		["sw"] = 64,
+		["sh"] = 64,
+		["border"] = false,
+		["dbkey"] = "MMBTNGREATVAULT",
+		["noalpha"] = true
+	})
+end
+
+local function UpdateVaultButton()
+	if ExpansionUtils:GetWoWBuild() ~= "RETAIL" then return end
+	if not ExpansionUtils:GV(EVTAB["MMBtnGreatVault"], "MMBTNVAULT", true) then return end
+	if not ExpansionUtils:HasSystem("GREATVAULT") then
+		if vaultButton then ExpansionUtils:HideMMBtn("ExpansionUtilsGreatVault") end
+		return
+	end
+
+	if vaultButton == nil then CreateVaultButton() end
+end
+
+function ExpansionUtils:UpdateSystems()
+	local systems = GetSystems()
+	local changed = false
+	for key, probe in pairs(SYSTEMS) do
+		local value = probe() == true
+		if systems[key] ~= value then
+			systems[key] = value
+			changed = true
+		end
+	end
+
+	if changed then UpdateVaultButton() end
+end
+
 local reshii = false
 local fEV = CreateFrame("Frame")
 ExpansionUtils:RegisterEvent(fEV, "PLAYER_LOGIN")
@@ -176,66 +318,7 @@ ExpansionUtils:OnEvent(fEV, function()
 			end)
 		end
 
-		if not ExpansionUtils:IsCamelot() and ExpansionUtils:GV(EVTAB["MMBtnGreatVault"], "MMBTNVAULT", true) then
-			local mmbtn = nil
-			ExpansionUtils:CreateMinimapButton({
-				["name"] = "ExpansionUtilsGreatVault",
-				["atlas"] = "GreatVault-32x32",
-				["var"] = mmbtn,
-				["dbtab"] = EVTAB["MMBtnGreatVault"],
-				["vTT"] = {{ExpansionUtils:Trans("LID_GREATVAULT"), "|T136033:16:16:0:0|t ExpansionUtils"}, {ExpansionUtils:Trans("LID_LEFTCLICK"), ExpansionUtils:Trans("LID_TOGGLECHARACTEROVERVIEW")}, {ExpansionUtils:Trans("LID_RIGHTCLICK"), ExpansionUtils:Trans("LID_TOGGLEGREATVAULT")}},
-				["vTTUpdate"] = function(sel, tt)
-					if C_WeeklyRewards.HasAvailableRewards() or C_WeeklyRewards.HasGeneratedRewards() then
-						tt:AddDoubleLine(" ", " ")
-						tt:AddDoubleLine("GREAT VAULT HAS REWARD", "")
-					end
-
-					tt:AddDoubleLine(" ", " ")
-					local vaultData = GetVaultData()
-					local raid = GetVaultStatus(vaultData, "raid")
-					tt:AddDoubleLine(RAID, raid)
-					local raidIlvl = GetVaultStatusIlvl(vaultData, "raid")
-					if strtrim(raidIlvl) ~= "" then tt:AddDoubleLine(" ", raidIlvl) end
-					tt:AddDoubleLine(" ", " ")
-					local mplus = GetVaultStatus(vaultData, "mplus")
-					tt:AddDoubleLine(PLAYER_DIFFICULTY_MYTHIC_PLUS, mplus)
-					local mplusIlvl = GetVaultStatusIlvl(vaultData, "mplus")
-					if strtrim(mplusIlvl) ~= "" then tt:AddDoubleLine(" ", mplusIlvl) end
-					tt:AddDoubleLine(" ", " ")
-					local world = GetVaultStatus(vaultData, "world")
-					tt:AddDoubleLine(WORLD, world)
-					local worldIlvl = GetVaultStatusIlvl(vaultData, "world")
-					if strtrim(worldIlvl) ~= "" then tt:AddDoubleLine(" ", worldIlvl) end
-					for i = 1, 99 do
-						local tr = _G[ExpansionUtils:GetName(tt) .. "TextRight" .. i]
-						if tr then
-							tr:SetFontObject("ConsoleFontNormal")
-							local f1, _, f3 = tr:GetFont()
-							tr:SetFont(f1, 14, f3)
-						end
-					end
-					return false
-				end,
-				["funcL"] = function() ExpansionUtils:ToggleCharacterOverview() end,
-				["funcR"] = function()
-					if not InCombatLockdown() then
-						if WeeklyRewardsFrame == nil then
-							WeeklyRewards_ShowUI()
-						elseif WeeklyRewardsFrame:IsShown() then
-							HideUIPanel(WeeklyRewardsFrame)
-						else
-							WeeklyRewards_ShowUI()
-						end
-					end
-				end,
-				["addoncomp"] = false,
-				["sw"] = 64,
-				["sh"] = 64,
-				["border"] = false,
-				["dbkey"] = "MMBTNGREATVAULT",
-				["noalpha"] = true
-			})
-		end
+		UpdateVaultButton()
 
 		ExpansionUtils:InitSettings()
 	end
@@ -267,6 +350,22 @@ ExpansionUtils:OnEvent(fEV, function()
 		frame:SetScript("OnEvent", function(self, event, unit) UpdateShieldIcon(unit or "target") end)
 	end
 end, "ExpansionUtils")
+
+local systemsChecked = false
+local fSYS = CreateFrame("Frame")
+ExpansionUtils:RegisterEvent(fSYS, "PLAYER_ENTERING_WORLD")
+ExpansionUtils:RegisterEvent(fSYS, "WEEKLY_REWARDS_UPDATE")
+ExpansionUtils:RegisterEvent(fSYS, "CHALLENGE_MODE_MAPS_UPDATE")
+ExpansionUtils:OnEvent(fSYS, function(sel, event)
+	if event ~= "PLAYER_ENTERING_WORLD" then
+		ExpansionUtils:UpdateSystems()
+		return
+	end
+
+	if systemsChecked then return end
+	systemsChecked = true
+	C_Timer.After(15, function() ExpansionUtils:UpdateSystems() end)
+end, "ExpansionUtils Systems")
 
 local lastCount = 0
 local function CountReadyPlayers()
