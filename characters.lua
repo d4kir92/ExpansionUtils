@@ -134,10 +134,14 @@ local function GetDifficultyName(difficulty)
 	return difficulty.short
 end
 
-local function FormatGold(copper, iconSize)
-	local gold = math.floor(copper / 10000)
+local function FormatMoney(money, iconSize)
+	money = math.max(0, math.floor(money or 0))
+	local gold = math.floor(money / 10000)
+	local silver = math.floor(money / 100) % 100
+	local copper = money % 100
 	if BreakUpLargeNumbers then gold = BreakUpLargeNumbers(gold) end
-	return gold .. " " .. Icon("Interface\\MoneyFrame\\UI-GoldIcon", iconSize or 12)
+	iconSize = iconSize or 12
+	return gold .. " " .. Icon("Interface\\MoneyFrame\\UI-GoldIcon", iconSize) .. " " .. string.format("%02d", silver) .. " " .. Icon("Interface\\MoneyFrame\\UI-SilverIcon", iconSize) .. " " .. string.format("%02d", copper) .. " " .. Icon("Interface\\MoneyFrame\\UI-CopperIcon", iconSize)
 end
 
 local function GetBaseFontSize()
@@ -951,7 +955,7 @@ local function SetFooterText(frame, text)
 end
 
 local function UpdateFooter()
-	SetFooterText(accountGold, Trans("LID_ACCOUNTGOLD") .. ": " .. FormatGold(GetAccountMoney()))
+	SetFooterText(accountGold, Trans("LID_ACCOUNTGOLD") .. ": " .. FormatMoney(GetAccountMoney()))
 	local played, missing = GetAccountPlayed()
 	local text = FormatPlayedShort(played)
 	if missing > 0 then text = text .. " +" .. MISSING end
@@ -1366,12 +1370,12 @@ local function MoneyColumn()
 	return {
 		["key"] = "money",
 		["label"] = "LID_GOLD",
-		["width"] = 90,
+		["width"] = 150,
 		["align"] = "RIGHT",
 		["descending"] = true,
 		["text"] = function(char)
 			if char["money"] == nil then return MISSING end
-			return FormatGold(char["money"], ScaledIcon(12))
+			return FormatMoney(char["money"], ScaledIcon(12))
 		end,
 		["tooltip"] = function(tooltip, char)
 			if char["money"] == nil or GetMoneyString == nil then return end
@@ -1954,7 +1958,7 @@ function ExpansionUtils:ToggleCharacterOverview()
 	end
 
 	ExpansionUtils:UpdateCharacterOverviewData()
-	StartRaidHistoryLoad(0.5)
+	if not ExpansionUtils:IsForever() then StartRaidHistoryLoad(0.5) end
 	ExpansionUtils:RefreshCharacterOverview()
 	window:Show()
 end

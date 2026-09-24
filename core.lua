@@ -57,12 +57,18 @@ local SYSTEMS = {
 	["PROFESSIONKNOWLEDGE"] = ProbeProfessionKnowledge
 }
 
+local function IsUnsupportedSystem(key)
+	return ExpansionUtils:IsForever() and (key == "GREATVAULT" or key == "MYTHICPLUS" or string.match(key, "^RAIDDIFFICULTY%d+$"))
+end
+
 function ExpansionUtils:HasSystem(key)
+	if IsUnsupportedSystem(key) then return false end
 	local probe = SYSTEMS[key]
 	if probe == nil then
 		if string.match(key, "^RAIDDIFFICULTY%d+$") then return GetSystems()[key] ~= false end
 		return true
 	end
+
 	if probe() then
 		GetSystems()[key] = true
 		return true
@@ -249,7 +255,7 @@ function ExpansionUtils:UpdateSystems()
 	local systems = GetSystems()
 	local changed = false
 	for key, probe in pairs(SYSTEMS) do
-		local value = probe() == true
+		local value = not IsUnsupportedSystem(key) and probe() == true
 		if systems[key] ~= value then
 			systems[key] = value
 			changed = true
@@ -263,7 +269,7 @@ function ExpansionUtils:UpdateSystem(key)
 	local probe = SYSTEMS[key]
 	if probe == nil then return end
 	local systems = GetSystems()
-	local value = probe() == true
+	local value = not IsUnsupportedSystem(key) and probe() == true
 	if systems[key] == value then return end
 	systems[key] = value
 	if key == "GREATVAULT" then UpdateVaultButton() end
@@ -275,7 +281,7 @@ ExpansionUtils:RegisterEvent(fEV, "PLAYER_LOGIN")
 ExpansionUtils:OnEvent(fEV, function()
 	ExpansionUtils:UnregisterEvent(fEV, "PLAYER_LOGIN")
 	ExpansionUtils:SetAddonOutput("ExpansionUtils", 133740)
-	ExpansionUtils:SetVersion(133740, "1.2.43")
+	ExpansionUtils:SetVersion(133740, "1.2.44")
 	EVTAB = EVTAB or {}
 	if EVTAB["MMBtnReshiWrap"] == nil then
 		EVTAB["MMBtnReshiWrap"] = EVTAB["MMBtnReshiWrap"] or {}
@@ -291,8 +297,8 @@ ExpansionUtils:OnEvent(fEV, function()
 		EVTAB["MMBtnCooldownViewerSettings"] = EVTAB["MMBtnCooldownViewerSettings"] or {}
 		ExpansionUtils:SV(EVTAB["MMBtnCooldownViewerSettings"], "MMBTNCooldownViewerSettings", true)
 	end
-	ExpansionUtils:UpdateSystem("PROFESSIONKNOWLEDGE")
 
+	ExpansionUtils:UpdateSystem("PROFESSIONKNOWLEDGE")
 	if ExpansionUtils:GetWoWBuild() == "RETAIL" then
 		ExpansionUtils:CreateMinimapButton({
 			["name"] = "CooldownViewerSettings",
