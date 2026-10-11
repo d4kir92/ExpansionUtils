@@ -316,8 +316,6 @@ ExpansionUtils:OnEvent(fEV, function()
 				end
 			end,
 			["addoncomp"] = false,
-			["sw"] = 64,
-			["sh"] = 64,
 			["border"] = false,
 			["dbkey"] = "MMBTNCooldownViewerSettings"
 		})
