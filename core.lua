@@ -293,33 +293,9 @@ ExpansionUtils:OnEvent(fEV, function()
 		ExpansionUtils:SV(EVTAB["MMBtnGreatVault"], "MMBTNGREATVAULT", true)
 	end
 
-	if EVTAB["MMBtnCooldownViewerSettings"] == nil then
-		EVTAB["MMBtnCooldownViewerSettings"] = EVTAB["MMBtnCooldownViewerSettings"] or {}
-		ExpansionUtils:SV(EVTAB["MMBtnCooldownViewerSettings"], "MMBTNCooldownViewerSettings", true)
-	end
-
+	EVTAB["MMBtnCooldownViewerSettings"] = nil
 	ExpansionUtils:UpdateSystem("PROFESSIONKNOWLEDGE")
 	if ExpansionUtils:GetWoWBuild() == "RETAIL" then
-		ExpansionUtils:CreateMinimapButton({
-			["name"] = "CooldownViewerSettings",
-			["atlas"] = "QuestLog-icon-setting",
-			["dbtab"] = EVTAB["MMBtnCooldownViewerSettings"],
-			["vTT"] = {{ExpansionUtils:Trans("LID_CooldownViewerSettings"), "|T136033:16:16:0:0|t ExpansionUtils"}, {ExpansionUtils:Trans("LID_LEFTCLICK"), ExpansionUtils:Trans("LID_TOGGLECooldownViewerSettings")}},
-			["vTTUpdate"] = function(sel, tt) return false end,
-			["funcL"] = function()
-				if not InCombatLockdown() and CooldownViewerSettings then
-					if CooldownViewerSettings:IsVisible() then
-						CooldownViewerSettings:Hide()
-					else
-						CooldownViewerSettings:Show()
-					end
-				end
-			end,
-			["addoncomp"] = false,
-			["border"] = false,
-			["dbkey"] = "MMBTNCooldownViewerSettings"
-		})
-
 		if ExpansionUtils:GV(EVTAB["MMBtnReshiWrap"], "MMBTNRESHIIWRAP", true) then
 			local btnReshii = ExpansionUtils:CreateMinimapButton({
 				["name"] = "ReshiiWraps",

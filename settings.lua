@@ -85,7 +85,6 @@ function ExpansionUtils:InitSettings()
 	AddCategory("MINIMAPBUTTONS")
 	mmbtnCheckbox = AddMinimapCheckbox("LID_MMBTN", EVTAB, "MMBTN", "ExpansionUtils")
 	if ExpansionUtils:HasSystem("GREATVAULT") then AddMinimapCheckbox("LID_SHOWVAULTMMBTN", EVTAB["MMBtnGreatVault"], "MMBTNGREATVAULT", "ExpansionUtilsGreatVault") end
-	AddMinimapCheckbox("LID_SHOWCOOLDOWNVIEWERMMBTN", EVTAB["MMBtnCooldownViewerSettings"], "MMBTNCooldownViewerSettings", "CooldownViewerSettings")
 	AddCategory("CHARACTEROVERVIEW")
 	ExpansionUtils.settingsOnlyMaxLevel = settings:AddCheckbox({
 		["label"] = "LID_ONLYMAXLEVEL",
