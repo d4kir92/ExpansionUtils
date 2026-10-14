@@ -1766,6 +1766,7 @@ local function CreateFontSizeSlider(footer, anchor)
 	local label = footer:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	label:SetPoint("LEFT", anchor, "RIGHT", 24, 0)
 	label:SetText(Trans("LID_FONTSIZE"))
+	ExpansionUtils.overviewFontLabel = label
 	local template = "OptionsSliderTemplate"
 	if ExpansionUtils:CheckTemplates("MinimalSliderTemplate") then
 		template = "MinimalSliderTemplate"
@@ -1941,6 +1942,15 @@ local function CreateWindow()
 	accountPlayed:SetPoint("RIGHT", accountGold, "LEFT", -24, 0)
 	UpdateFooter()
 	UpdateWindowWidth()
+end
+
+function ExpansionUtils:RefreshCharacterOverviewLanguage()
+	if window == nil then return end
+	window.titleBar.Title:SetText(Trans("LID_CHARACTEROVERVIEW"))
+	onlyMaxLevel.Label:SetText(Trans("LID_ONLYMAXLEVEL"))
+	if self.overviewFontLabel then self.overviewFontLabel:SetText(Trans("LID_FONTSIZE")) end
+	self:RefreshCharacterOverviewRaidColumns()
+	self:RefreshCharacterOverview()
 end
 
 function ExpansionUtils:ToggleCharacterOverview()

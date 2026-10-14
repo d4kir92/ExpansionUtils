@@ -191,11 +191,11 @@ local function CreateVaultButton()
 		["name"] = "ExpansionUtilsGreatVault",
 		["atlas"] = "GreatVault-32x32",
 		["dbtab"] = EVTAB["MMBtnGreatVault"],
-		["vTT"] = {{ExpansionUtils:Trans("LID_GREATVAULT"), "|T136033:16:16:0:0|t ExpansionUtils"}, {ExpansionUtils:Trans("LID_LEFTCLICK"), ExpansionUtils:Trans("LID_TOGGLECHARACTEROVERVIEW")}, {ExpansionUtils:Trans("LID_RIGHTCLICK"), ExpansionUtils:Trans("LID_TOGGLEGREATVAULT")}},
+		["vTT"] = {{"LID_GREATVAULT", "|T136033:16:16:0:0|t ExpansionUtils"}, {"LID_LEFTCLICK", "LID_TOGGLECHARACTEROVERVIEW"}, {"LID_RIGHTCLICK", "LID_TOGGLEGREATVAULT"}},
 		["vTTUpdate"] = function(sel, tt)
 			if C_WeeklyRewards.HasAvailableRewards() or C_WeeklyRewards.HasGeneratedRewards() then
 				tt:AddDoubleLine(" ", " ")
-				tt:AddDoubleLine("GREAT VAULT HAS REWARD", "")
+				tt:AddDoubleLine(ExpansionUtils:Trans("LID_REWARDSWAITING"), "")
 			end
 
 			tt:AddDoubleLine(" ", " ")
@@ -307,7 +307,7 @@ ExpansionUtils:OnEvent(fEV, function()
 				["name"] = "ReshiiWraps",
 				["atlas"] = "poi-workorders",
 				["dbtab"] = EVTAB["MMBtnReshiWrap"],
-				["vTT"] = {{ExpansionUtils:Trans("LID_RESHIIWRAP"), "|T136033:16:16:0:0|t ExpansionUtils"}, {ExpansionUtils:Trans("LID_LEFTCLICK"), ExpansionUtils:Trans("LID_TOGGLERESHIIWRAP")}},
+				["vTT"] = {{"LID_RESHIIWRAP", "|T136033:16:16:0:0|t ExpansionUtils"}, {"LID_LEFTCLICK", "LID_TOGGLERESHIIWRAP"}},
 				["funcL"] = function()
 					if GenericTraitUI_LoadUI and reshii == false then
 						reshii = true

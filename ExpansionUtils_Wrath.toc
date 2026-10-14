@@ -1,17 +1,17 @@
 ## Interface: 38002, 30403
-## Version: 1.2.47
+## Version: 1.3.0
 ## Title: ExpansionUtils by |cff55d2ffD4KiR |T132115:16:16:0:0|t
-## Notes: Adds a button for Reshii Wrap and the Great Vault.
-## Notes-deDE: Fügt eine Knopf für Reshii Wrap und den Großen Tresor hinzu.
-## Notes-esES: Añade un botón para el Envoltorio de Reshii y la Gran Bóveda.
-## Notes-esMX: Añade un botón para el Envoltorio de Reshii y la Gran Bóveda.
-## Notes-frFR: Ajoute un bouton pour l'Emballage de Reshii et le Grand Coffre.
-## Notes-itIT: Aggiunge un pulsante per l'Involucro di Reshii e il Grande Forziere.
-## Notes-koKR: 레시의 감싸개와 위대한 금고 버튼을 추가합니다.
-## Notes-ptBR: Adiciona um botão para o Envoltório de Reshii e o Grande Cofre.
-## Notes-ruRU: Добавляет кнопку для Повязки реши и Великого Хранилища.
-## Notes-zhCN: 添加瑞西的包裹和至宝仓库的按钮。
-## Notes-zhTW: 新增瑞西的包裹和至寶倉庫的按鈕。
+## Notes: Character overview, weekly progress, Great Vault shortcuts, Valeera XP, and expansion conveniences.
+## Notes-deDE: Charakterübersicht, Wochenfortschritt, Tresorzugriff, Valeera-EP und Erweiterungshelfer.
+## Notes-esES: Resumen de personajes, progreso semanal, acceso a la Gran Cámara, experiencia de Valeera y utilidades de expansión.
+## Notes-esMX: Resumen de personajes, progreso semanal, acceso a la Gran Bóveda, experiencia de Valeera y utilidades de expansión.
+## Notes-frFR: Vue des personnages, progression hebdomadaire, accès à la grande chambre forte, expérience de Valeera et outils pour les extensions.
+## Notes-itIT: Panoramica dei personaggi, progressi settimanali, accesso alla Gran Banca, esperienza di Valeera e utilità per le espansioni.
+## Notes-koKR: 캐릭터 현황, 주간 진행 상황, 위대한 금고 바로가기, 발리라 경험치 및 확장팩 편의 기능.
+## Notes-ptBR: Visão geral dos personagens, progresso semanal, acesso ao Grande Cofre, experiência de Valeera e utilidades de expansão.
+## Notes-ruRU: Обзор персонажей, недельный прогресс, доступ к Великому хранилищу, опыт Валиры и удобства дополнений.
+## Notes-zhCN: 角色总览、每周进度、宏伟宝库快捷入口、瓦莉拉经验及资料片便捷功能。
+## Notes-zhTW: 角色總覽、每週進度、寶庫快捷入口、瓦莉拉經驗及資料片便利功能。
 ## Author: D4KiR |T132115:16:16:0:0|t
 ## Category: Expansion Features
 ## Category-deDE: Erweiterungsfeatures

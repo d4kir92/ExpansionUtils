@@ -380,6 +380,7 @@ ExpansionUtils:OnEvent(
 			if ExpansionUtils:GetWoWBuild() ~= "RETAIL" then return end
 			GetDB()
 			CreateBar()
+			ExpansionUtils:OnLanguage(UpdateBar)
 			ExpansionUtils:RegisterEvent(fVXP, "UPDATE_FACTION")
 			ExpansionUtils:RegisterEvent(fVXP, "PLAYER_ENTERING_WORLD")
 			ExpansionUtils:RegisterEvent(fVXP, "GROUP_ROSTER_UPDATE")
