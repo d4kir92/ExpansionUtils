@@ -1,5 +1,5 @@
 local _, ExpansionUtils = ...
-local ICON = 133740
+local ICON = ExpansionUtils:GetAddonIcon()
 local DEFAULT_WIDTH = 420
 local DEFAULT_HEIGHT = 320
 local settings = nil
