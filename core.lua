@@ -132,7 +132,13 @@ local function GetVaultStatusIlvl(vaultData, name)
 	for i, data in pairs(vaultData[name]) do
 		local ilvl = nil
 		local itemLink = C_WeeklyRewards.GetExampleRewardItemHyperlinks(data.id)
-		if itemLink then ilvl = GetDetailedItemLevelInfo(itemLink) end
+		if itemLink then
+			if C_Item and C_Item.GetDetailedItemLevelInfo then
+				ilvl = C_Item.GetDetailedItemLevelInfo(itemLink)
+			elseif GetDetailedItemLevelInfo then
+				ilvl = GetDetailedItemLevelInfo(itemLink)
+			end
+		end
 		local color = "|cFFFFFFFF"
 		if data.progress == 0 then
 			color = "|cFFFF0000"
